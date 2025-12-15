@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>K-painter PRO</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; padding-top: 25px; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; box-sizing: border-box; }
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
         #root { height: 100%; width: 100%; }
         .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
         .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; }
@@ -70,7 +68,7 @@
             Play: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>),
             X: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
             Settings: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
-            RotateCcw: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>),
+            RotateCcw: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>),
             Trash2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>),
             Copy: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>),
             Edit: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>),
@@ -82,10 +80,13 @@
             Replace: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 2c1.1 0 2 .9 2 2v2"/><path d="M22 8c0 1.1-.9 2-2 2"/><path d="M16 10c-1.1 0-2-.9-2-2"/><path d="m3 7 3 3 3-3"/><path d="M6 10V5c0-1.7 1.3-3 3-3h1"/><rect x="2" y="14" width="8" height="8" rx="2"/></svg>),
             Zap: ({size=24, color="currentColor", fill="none"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>),
             DownloadCloud: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>),
-            Link: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>)
+            Link: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>),
+            Save: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>),
+            List: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>),
+            Repeat2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m2 9 3-3 3 3"/><path d="M13 6H5v14"/><path d="m22 15-3 3-3-3"/><path d="M11 18h8V4"/></svg>)
         };
         
-        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon } = Icons;
+        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2 } = Icons;
 
         // ================= Config =================
         const DEFAULT_CONFIG = {
@@ -298,15 +299,167 @@
             }
         };
 
+        // Utility to convert file/blob to base64
+        const blobToBase64 = (blob) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        };
+
+        // Utility to convert Base64 dataURL to File object
+        const dataURLtoFile = (dataurl, filename) => {
+            let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new File([u8arr], filename, {type:mime});
+        }
+
         // ================= UI Components =================
 
         const Toast = ({ message, type, show, onClose }) => {
             useEffect(() => { if (show) { const timer = setTimeout(onClose, 2500); return () => clearTimeout(timer); } }, [show, onClose]);
             if (!show) return null;
-            const bgColor = type === 'error' ? 'bg-red-500' : 'bg-black';
+            const bgColor = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-500' : 'bg-black');
             return (
-                <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-6 py-2 rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] z-[100] animate-bounce-in font-bold flex items-center gap-2 border-2 border-white z-[200]`}>
-                    {type !== 'error' && <div className="w-2 h-2 bg-green-400 rounded-full"></div>} {message}
+                <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-6 py-2 rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] z-[200] animate-bounce-in font-bold flex items-center gap-2 border-2 border-white`}>
+                    {type === 'success' && <div className="w-2 h-2 bg-white rounded-full"></div>} {message}
+                </div>
+            );
+        };
+
+        // New Input Modal Component for replacing window.prompt
+        const InputModal = ({ isOpen, title, defaultValue, onConfirm, onCancel }) => {
+            const [value, setValue] = useState(defaultValue || '');
+            useEffect(() => { if (isOpen) setValue(defaultValue || ''); }, [isOpen, defaultValue]);
+            
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-4 animate-bounce-in">
+                        <h3 className="text-lg font-black text-center">{title}</h3>
+                        <input 
+                            type="text" 
+                            className="cartoon-input w-full" 
+                            value={value} 
+                            onChange={(e) => setValue(e.target.value)} 
+                            placeholder="请输入..."
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <button onClick={onCancel} className="cartoon-btn secondary flex-1 py-2">取消</button>
+                            <button onClick={() => onConfirm(value)} className="cartoon-btn flex-1 py-2">确认</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const PromptManager = ({ currentPrompt, setPrompt, showToast }) => {
+            const [savedPrompts, setSavedPrompts] = useState([]);
+            const [showListModal, setShowListModal] = useState(false);
+            
+            // Input Modal States
+            const [inputModal, setInputModal] = useState({ show: false, title: '', defaultValue: '', onConfirm: null });
+
+            useEffect(() => {
+                const loaded = localStorage.getItem('kpainter_prompts');
+                if (loaded) {
+                    let parsed = JSON.parse(loaded);
+                    if (parsed.length > 0 && typeof parsed[0] === 'string') {
+                        parsed = parsed.map((p, i) => ({ id: Date.now() + i, name: `提示词 ${i+1}`, content: p }));
+                        localStorage.setItem('kpainter_prompts', JSON.stringify(parsed));
+                    }
+                    setSavedPrompts(parsed);
+                }
+            }, []);
+
+            const openSaveModal = () => {
+                if (!currentPrompt.trim()) return showToast("提示词为空", "error");
+                setInputModal({
+                    show: true,
+                    title: "保存提示词",
+                    defaultValue: `提示词 ${savedPrompts.length + 1}`,
+                    onConfirm: (name) => {
+                        if (!name) return;
+                        const newPrompt = { id: Date.now(), name, content: currentPrompt };
+                        const newPrompts = [newPrompt, ...savedPrompts].slice(0, 15);
+                        setSavedPrompts(newPrompts);
+                        localStorage.setItem('kpainter_prompts', JSON.stringify(newPrompts));
+                        showToast("提示词已保存");
+                        setInputModal(prev => ({ ...prev, show: false }));
+                    }
+                });
+            };
+
+            const selectPrompt = (p) => {
+                setPrompt(p.content);
+                setShowListModal(false);
+                showToast(`已加载：${p.name}`);
+            };
+
+            const deletePrompt = (id) => {
+                const newPrompts = savedPrompts.filter(p => p.id !== id);
+                setSavedPrompts(newPrompts);
+                localStorage.setItem('kpainter_prompts', JSON.stringify(newPrompts));
+            };
+
+            const openRenameModal = (id, oldName) => {
+                setInputModal({
+                    show: true,
+                    title: "重命名提示词",
+                    defaultValue: oldName,
+                    onConfirm: (newName) => {
+                        if (!newName) return;
+                        const newPrompts = savedPrompts.map(p => p.id === id ? { ...p, name: newName } : p);
+                        setSavedPrompts(newPrompts);
+                        localStorage.setItem('kpainter_prompts', JSON.stringify(newPrompts));
+                        setInputModal(prev => ({ ...prev, show: false }));
+                    }
+                });
+            };
+
+            return (
+                <div className="flex gap-2 my-3">
+                    <button onClick={openSaveModal} className="cartoon-btn secondary flex-1 py-2 text-xs flex items-center justify-center gap-2 bg-yellow-200"><Save size={16}/> 保存当前提示词</button>
+                    <button onClick={() => setShowListModal(true)} className="cartoon-btn flex-1 py-2 text-xs flex items-center justify-center gap-2 bg-white"><List size={16}/> 我的提示词本 ({savedPrompts.length})</button>
+                    
+                    {/* List Modal */}
+                    {showListModal && (
+                        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                            <div className="cartoon-box bg-white w-full max-w-sm p-4 flex flex-col max-h-[70vh] animate-bounce-in">
+                                <div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="font-black text-lg">我的提示词本</h3><button onClick={() => setShowListModal(false)}><X size={20}/></button></div>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                                    {savedPrompts.length === 0 ? <div className="text-center text-gray-400 text-xs py-4">还没有收藏的提示词哦</div> : 
+                                    savedPrompts.map((p) => (
+                                        <div key={p.id} className="flex gap-2 items-start border-2 border-gray-100 rounded-lg p-2 hover:bg-yellow-50 transition-colors">
+                                            <div onClick={() => selectPrompt(p)} className="flex-1 cursor-pointer">
+                                                <div className="font-bold text-xs mb-1">{p.name}</div>
+                                                <div className="text-[10px] text-gray-500 line-clamp-2">{p.content}</div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <button onClick={() => openRenameModal(p.id, p.name)} className="text-blue-500 p-1 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                <button onClick={() => deletePrompt(p.id)} className="text-red-500 p-1 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Input Modal */}
+                    <InputModal 
+                        isOpen={inputModal.show} 
+                        title={inputModal.title} 
+                        defaultValue={inputModal.defaultValue} 
+                        onConfirm={inputModal.onConfirm} 
+                        onCancel={() => setInputModal(prev => ({ ...prev, show: false }))} 
+                    />
                 </div>
             );
         };
@@ -361,23 +514,132 @@
         }
         const TabBar = ({ activeTab, setTab }) => {
             const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
-            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-0 flex justify-around items-end z-50 h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
         };
 
         // --- SuperTaskMode ---
         const SuperTaskMode = ({ addToHistory, updateHistory, config, showToast, state, setState }) => {
             const { globalRefs, subTasks, settings } = state;
             const [isProcessing, setIsProcessing] = useState(false);
+            const [showSeqModal, setShowSeqModal] = useState(false);
+            const [savedSequences, setSavedSequences] = useState([]);
+            
+            // Loop Mode State
+            const [loopMode, setLoopMode] = useState(false);
+            const [batchImages, setBatchImages] = useState([]);
+            const [targetRefId, setTargetRefId] = useState(1);
+
+            // Input Modal States
+            const [inputModal, setInputModal] = useState({ show: false, title: '', defaultValue: '', onConfirm: null });
+
+            useEffect(() => {
+                const loaded = localStorage.getItem('kpainter_sequences');
+                if (loaded) setSavedSequences(JSON.parse(loaded));
+            }, []);
 
             const setGlobalRefs = (newRefs) => setState(prev => ({ ...prev, globalRefs: newRefs }));
             const setSubTasks = (newTasks) => setState(prev => ({ ...prev, subTasks: newTasks }));
             const setSettings = (newSettings) => setState(prev => ({ ...prev, settings: { ...prev.settings, ...newSettings } }));
+
+            // Save/Load Logic
+            const openSaveSequenceModal = () => {
+                if (subTasks.length === 0) return showToast("当前没有任务序列可保存", "error");
+                setInputModal({
+                    show: true,
+                    title: "保存任务序列",
+                    defaultValue: "",
+                    onConfirm: (name) => {
+                        if(!name) return;
+                        saveSequence(name);
+                        setInputModal(prev => ({...prev, show: false}));
+                    }
+                });
+            };
+
+            const saveSequence = async (name) => {
+                try {
+                    // Process subtasks to persist images
+                    const persistedSubTasks = await Promise.all(subTasks.map(async (task) => {
+                        const persistedLocalRefs = await Promise.all(task.localRefs.map(async (ref) => {
+                            let base64 = "";
+                            if (ref.file) {
+                                base64 = await blobToBase64(ref.file);
+                            } else if (ref.preview && ref.preview.startsWith('data:')) {
+                                base64 = ref.preview;
+                            }
+                            return { ...ref, preview: base64, file: null }; 
+                        }));
+                        return { ...task, localRefs: persistedLocalRefs };
+                    }));
+
+                    const newSeq = { id: Date.now(), name, subTasks: persistedSubTasks, settings };
+                    const newSequences = [newSeq, ...savedSequences].slice(0, 10);
+                    
+                    localStorage.setItem('kpainter_sequences', JSON.stringify(newSequences));
+                    setSavedSequences(newSequences);
+                    showToast("序列任务保存成功");
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        showToast("保存失败：图片太大，超过本地存储限制", "error");
+                    } else {
+                        showToast("保存失败：" + e.message, "error");
+                    }
+                }
+            };
+
+            const loadSequence = (seq) => {
+                try {
+                    // Restore images from base64 to File objects
+                    const restoredSubTasks = seq.subTasks.map(task => ({
+                        ...task,
+                        localRefs: task.localRefs.map(ref => {
+                            if (ref.preview && ref.preview.startsWith('data:')) {
+                                const filename = "restored_image.png";
+                                const file = dataURLtoFile(ref.preview, filename);
+                                return { ...ref, file };
+                            }
+                            return ref;
+                        })
+                    }));
+
+                    setSubTasks(restoredSubTasks);
+                    setSettings(seq.settings);
+                    setShowSeqModal(false);
+                    showToast(`序列 "${seq.name}" 已加载`);
+                } catch (e) {
+                    console.error("Load sequence failed", e);
+                    showToast("序列加载失败，数据可能已损坏", "error");
+                }
+            };
+
+            const deleteSequence = (id) => {
+                const newSeqs = savedSequences.filter(s => s.id !== id);
+                setSavedSequences(newSeqs);
+                localStorage.setItem('kpainter_sequences', JSON.stringify(newSeqs));
+            };
+
+            const openRenameSequenceModal = (id, oldName) => {
+                setInputModal({
+                    show: true,
+                    title: "重命名序列",
+                    defaultValue: oldName,
+                    onConfirm: (newName) => {
+                        if (!newName) return;
+                        const newSeqs = savedSequences.map(s => s.id === id ? { ...s, name: newName } : s);
+                        setSavedSequences(newSeqs);
+                        localStorage.setItem('kpainter_sequences', JSON.stringify(newSeqs));
+                        setInputModal(prev => ({...prev, show: false}));
+                    }
+                });
+            };
 
             // 1. One-click Reset
             const handleResetSuperTask = () => {
                 setGlobalRefs([]);
                 setSubTasks([{ id: 1, prompt: '', localRefs: [] }]);
                 setSettings({ size: '2K' });
+                setLoopMode(false);
+                setBatchImages([]);
                 showToast("超级任务已重置");
             };
 
@@ -393,6 +655,18 @@
                 const maxId = globalRefs.length > 0 ? Math.max(...globalRefs.map(r => r.id)) : 0;
                 const labelledRefs = newRefs.map((ref, idx) => ({ ...ref, id: maxId + 1 + idx }));
                 setGlobalRefs([...globalRefs, ...labelledRefs]);
+            };
+
+            const handleBatchImagesUpload = async (e) => {
+                const files = Array.from(e.target.files);
+                const newImgs = await Promise.all(files.map(file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve({ preview: e.target.result, file });
+                        reader.readAsDataURL(file);
+                    });
+                }));
+                setBatchImages([...batchImages, ...newImgs]);
             };
 
             const removeGlobalRef = (id) => { setGlobalRefs(globalRefs.filter(r => r.id !== id)); };
@@ -460,164 +734,186 @@
                  if (missingTags.length > 0) return alert(`提交失败，存在无效引用：\n${missingTags.join('\n')}`);
                  if (subTasks.length === 0) return showToast("请添加至少一个子任务");
                  
+                 // Loop Mode Validation
+                 if (loopMode) {
+                     if (batchImages.length === 0) return showToast("循环模式下必须上传循环图 (图片A)", "error");
+                     if (!globalRefs.find(r => r.id === targetRefId)) return showToast(`未找到目标全局参考图 pic${targetRefId}`, "error");
+                 }
+
                  setIsProcessing(true);
-                 // showToast("超级任务已启动，正在后台处理...", "info"); // Removed redundant toast
+
+                 const runSequence = async (currentGlobalRefUrls, currentGlobalRefPreviews, sequenceIndex = 0) => {
+                      const taskStatusMap = {}; 
+                      const historyIds = [];
+                      
+                      // Initialize history items for THIS sequence
+                      subTasks.forEach(task => {
+                          const histId = Date.now() + task.id + (sequenceIndex * 1000); // Unique IDs per sequence loop
+                          taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
+                          let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
+                          addToHistory({ id: histId, type: 'img2img', url: '', prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, date: new Date(), status: 'analyzing', progress: 0, isMock: false });
+                          historyIds.push(histId);
+                      });
+
+                      const checkAndRun = async () => {
+                          let allFinished = true;
+                          for (const task of subTasks) {
+                              const statusObj = taskStatusMap[task.id];
+                              if (statusObj.status === 'success' || statusObj.status === 'failed') continue;
+                              allFinished = false;
+
+                              if (statusObj.status === 'pending') {
+                                  // Check dependencies
+                                  const dependencies = task.prompt.match(/\[result(\d+)\]/g);
+                                  let canRun = true;
+                                  if (dependencies) {
+                                      for (const dep of dependencies) {
+                                          const depId = parseInt(dep.match(/\d+/)[0]);
+                                          if (!taskStatusMap[depId] || !taskStatusMap[depId].resultUrl) {
+                                              canRun = false;
+                                              break;
+                                          }
+                                      }
+                                  }
+
+                                  if (canRun) {
+                                      statusObj.status = 'running';
+                                      let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
+                                      updateHistory(statusObj.historyId, { prompt: `${loopLabel}[子任务 ${task.id}] 正在生成...`, status: 'generating' });
+                                      runSubTask(task, statusObj).then(() => { checkAndRun(); });
+                                  }
+                              }
+                          }
+                          // Sequence finished
+                          if (allFinished && !loopMode) { 
+                              showToast("超级任务全部完成！"); 
+                          }
+                      };
+
+                      const runSubTask = async (task, statusObj) => {
+                          try {
+                              const urls = [];
+                              const previewUrls = []; // Separate array to store local previews for better aspect ratio calculation
+                              let finalPrompt = task.prompt;
+                              const tagToIndexMap = {};
+                              const addUrlAndPreview = (url, preview) => { 
+                                  urls.push(url); 
+                                  previewUrls.push(preview || url); // Fallback to url if no preview available
+                                  return urls.length; 
+                              };
+
+                              // 2. Robust Logic: Extract tags, resolve URLs, push to ordered array, map to prompt
+                              const tagRegex = /\[(pic|result)(\d+)\]/g;
+                              const tagsInPrompt = [];
+                              let match;
+                              while ((match = tagRegex.exec(task.prompt)) !== null) {
+                                  if (!tagsInPrompt.includes(match[0])) {
+                                      tagsInPrompt.push(match[0]);
+                                  }
+                              }
+                              
+                              // Process tags
+                              for (const tag of tagsInPrompt) {
+                                  if (!tagToIndexMap[tag]) {
+                                      const type = tag.startsWith('[pic') ? 'pic' : 'result';
+                                      const id = parseInt(tag.match(/\d+/)[0]);
+                                      
+                                      let url = null;
+                                      let previewUrl = null;
+
+                                      if (type === 'pic') {
+                                          url = currentGlobalRefUrls[`pic${id}`];
+                                          previewUrl = currentGlobalRefPreviews[`pic${id}`];
+                                      } else if (type === 'result') {
+                                          url = taskStatusMap[id]?.resultUrl;
+                                          previewUrl = url; 
+                                      }
+
+                                      if (url) {
+                                          const idx = addUrlAndPreview(url, previewUrl);
+                                          tagToIndexMap[tag] = idx; // [pic1] -> 1 (means 图1)
+                                      }
+                                  }
+                              }
+
+                              // Replace tags in prompt with "图N"
+                              finalPrompt = finalPrompt.replace(tagRegex, (m) => {
+                                  const idx = tagToIndexMap[m];
+                                  return idx ? `图${idx}` : m;
+                              });
+
+                              // Append local refs (if any) - mapped to next available indices
+                              for (const localRef of task.localRefs) {
+                                  const url = await uploadImageToQiniu(localRef.file, config);
+                                  addUrlAndPreview(url, localRef.preview);
+                              }
+
+                              // 3. FIX: Safe aspect ratio calculation using LOCAL PREVIEW if available
+                              let aspectRatio = "1:1";
+                              if (previewUrls.length > 0) {
+                                  aspectRatio = await safeGetAspectRatio(previewUrls[0]);
+                              }
+
+                              const { url, taskId } = await runTaskWithRetry(
+                                  () => submitDrawTask(finalPrompt, aspectRatio, settings.size, urls, config),
+                                  (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
+                                  10
+                              );
+                              
+                              const isMock = taskId.toString().startsWith("mock-");
+                              statusObj.resultUrl = url;
+                              statusObj.status = 'success';
+                              updateHistory(statusObj.historyId, { url, status: 'success', isMock, prompt: finalPrompt });
+
+                          } catch (e) {
+                              console.error(e);
+                              statusObj.status = 'failed';
+                              updateHistory(statusObj.historyId, { status: 'failed', prompt: `失败: ${e.message}` });
+                          }
+                      };
+                      
+                      await checkAndRun(); // Start the sequence
+                 };
 
                  (async () => {
                       try {
                         const globalRefUrls = {};
-                        const globalRefPreviews = {}; // Store previews for aspect ratio calc
+                        const globalRefPreviews = {}; 
 
-                        // 1. Force upload all global refs first
+                        // 1. Force upload all global refs first (Base set)
                         for (const ref of globalRefs) {
                             const url = await uploadImageToQiniu(ref.file, config);
-                            if (url.startsWith('blob:')) alert(`警告: pic${ref.id} 上传失败，使用Blob URL，API可能无法读取。请检查七牛配置。`);
+                            if (url.startsWith('blob:')) alert(`警告: pic${ref.id} 上传失败，使用Blob URL。`);
                             globalRefUrls[`pic${ref.id}`] = url;
-                            globalRefPreviews[`pic${ref.id}`] = ref.preview; // Cache preview
+                            globalRefPreviews[`pic${ref.id}`] = ref.preview;
                         }
 
-                        const taskStatusMap = {}; 
-                        const historyIds = [];
-                        
-                        subTasks.forEach(task => {
-                            const histId = Date.now() + task.id;
-                            taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
-                            addToHistory({ id: histId, type: 'img2img', url: '', prompt: `[子任务 ${task.id}] 等待依赖...`, date: new Date(), status: 'analyzing', progress: 0, isMock: false });
-                            historyIds.push(histId);
-                        });
-
-                        const checkAndRun = async () => {
-                            let allFinished = true;
-                            for (const task of subTasks) {
-                                const statusObj = taskStatusMap[task.id];
-                                if (statusObj.status === 'success' || statusObj.status === 'failed') continue;
-                                allFinished = false;
-
-                                if (statusObj.status === 'pending') {
-                                    // Check dependencies
-                                    const dependencies = task.prompt.match(/\[result(\d+)\]/g);
-                                    let canRun = true;
-                                    if (dependencies) {
-                                        for (const dep of dependencies) {
-                                            const depId = parseInt(dep.match(/\d+/)[0]);
-                                            if (!taskStatusMap[depId] || !taskStatusMap[depId].resultUrl) {
-                                                canRun = false;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if (canRun) {
-                                        statusObj.status = 'running';
-                                        updateHistory(statusObj.historyId, { prompt: `[子任务 ${task.id}] 正在生成...`, status: 'generating' });
-                                        runSubTask(task, statusObj).then(() => { checkAndRun(); });
-                                    }
-                                }
-                            }
-                            if (allFinished) { 
-                                // setIsProcessing(false); // Handled earlier
-                                showToast("超级任务全部完成！"); 
-                            }
-                        };
-
-                        const runSubTask = async (task, statusObj) => {
-                            try {
-                                const urls = [];
-                                const previewUrls = []; // Separate array to store local previews for better aspect ratio calculation
-                                let finalPrompt = task.prompt;
-                                const tagToIndexMap = {};
-                                const addUrlAndPreview = (url, preview) => { 
-                                    urls.push(url); 
-                                    previewUrls.push(preview || url); // Fallback to url if no preview available
-                                    return urls.length; 
-                                };
-
-                                // 2. Robust Logic: Extract tags, resolve URLs, push to ordered array, map to prompt
-                                const tagRegex = /\[(pic|result)(\d+)\]/g;
-                                const tagsInPrompt = [];
-                                let match;
-                                // Collect all unique tags in order of appearance (roughly)
-                                while ((match = tagRegex.exec(task.prompt)) !== null) {
-                                    if (!tagsInPrompt.includes(match[0])) {
-                                        tagsInPrompt.push(match[0]);
-                                    }
-                                }
+                        if (loopMode) {
+                            showToast(`开始执行循环任务，共 ${batchImages.length} 轮`);
+                            for (let i = 0; i < batchImages.length; i++) {
+                                // Upload current batch image
+                                const batchImgUrl = await uploadImageToQiniu(batchImages[i].file, config);
                                 
-                                // Process tags
-                                for (const tag of tagsInPrompt) {
-                                    if (!tagToIndexMap[tag]) {
-                                        const type = tag.startsWith('[pic') ? 'pic' : 'result';
-                                        const id = parseInt(tag.match(/\d+/)[0]);
-                                        
-                                        let url = null;
-                                        let previewUrl = null;
-
-                                        if (type === 'pic') {
-                                            url = globalRefUrls[`pic${id}`];
-                                            previewUrl = globalRefPreviews[`pic${id}`];
-                                        } else if (type === 'result') {
-                                            url = taskStatusMap[id]?.resultUrl;
-                                            previewUrl = url; // Results don't have local previews
-                                        }
-
-                                        if (url) {
-                                            const idx = addUrlAndPreview(url, previewUrl);
-                                            tagToIndexMap[tag] = idx; // [pic1] -> 1 (means 图1)
-                                        }
-                                    }
-                                }
-
-                                // Replace tags in prompt with "图N"
-                                finalPrompt = finalPrompt.replace(tagRegex, (m) => {
-                                    const idx = tagToIndexMap[m];
-                                    return idx ? `图${idx}` : m;
-                                });
-
-                                // Append local refs (if any) - mapped to next available indices
-                                for (const localRef of task.localRefs) {
-                                    const url = await uploadImageToQiniu(localRef.file, config);
-                                    addUrlAndPreview(url, localRef.preview);
-                                }
-
-                                console.log(`[SuperTask] SubTask ${task.id} Final URLs:`, urls);
-                                console.log(`[SuperTask] SubTask ${task.id} Final Prompt:`, finalPrompt);
-
-                                // 3. FIX: Safe aspect ratio calculation using LOCAL PREVIEW if available
-                                let aspectRatio = "1:1";
-                                if (previewUrls.length > 0) {
-                                    aspectRatio = await safeGetAspectRatio(previewUrls[0]);
-                                    console.log(`[SuperTask] Aspect Ratio set to ${aspectRatio} from ${previewUrls[0].substring(0, 50)}...`);
-                                }
-
-                                const { url, taskId } = await runTaskWithRetry(
-                                    () => submitDrawTask(finalPrompt, aspectRatio, settings.size, urls, config),
-                                    (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
-                                    10
-                                );
+                                // Create modified context
+                                const modifiedUrls = { ...globalRefUrls, [`pic${targetRefId}`]: batchImgUrl };
+                                const modifiedPreviews = { ...globalRefPreviews, [`pic${targetRefId}`]: batchImages[i].preview };
                                 
-                                const isMock = taskId.toString().startsWith("mock-");
-                                statusObj.resultUrl = url;
-                                statusObj.status = 'success';
-                                updateHistory(statusObj.historyId, { url, status: 'success', isMock, prompt: finalPrompt });
-
-                            } catch (e) {
-                                console.error(e);
-                                statusObj.status = 'failed';
-                                updateHistory(statusObj.historyId, { status: 'failed', prompt: `失败: ${e.message}` });
+                                // Run sequence detached (or await if sequential execution is desired)
+                                // We await here to prevent overwhelming the server
+                                await runSequence(modifiedUrls, modifiedPreviews, i);
                             }
-                        };
+                            showToast("循环任务全部完成");
+                        } else {
+                            await runSequence(globalRefUrls, globalRefPreviews);
+                        }
                         
-                        // Start the sequence
-                        checkAndRun();
-                        
-                        // RELEASE BUTTON AND SHOW SUCCESS TOAST IMMEDIATELY
                         setIsProcessing(false);
-                        showToast("超级任务已提交后台队列", "success");
+                        showToast("所有任务已提交/完成", "success");
 
                       } catch (e) {
                           console.error(e);
                           setIsProcessing(false);
-                          showToast("超级任务启动失败: " + e.message, "error");
+                          showToast("任务启动失败: " + e.message, "error");
                       }
                  })();
             };
@@ -627,19 +923,58 @@
                     <div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-50 overflow-hidden relative">
                         <div className="flex justify-between items-center mb-2 flex-shrink-0">
                             <h2 className="text-xl font-black flex items-center gap-2"><Zap size={24} className="text-red-500 fill-current"/> 超级任务</h2>
-                            <div className="flex gap-2">
-                                <button onClick={handleResetSuperTask} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button>
-                                <div className="flex bg-white rounded-lg border-2 border-black overflow-hidden">
-                                    <button onClick={() => setSettings({size: '2K'})} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-yellow-300' : ''}`}>2K</button>
-                                    <button onClick={() => setSettings({size: '4K'})} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-yellow-300' : ''}`}>4K</button>
+                            <div className="flex gap-2 items-center">
+                                {/* 2K/4K Toggle Restored */}
+                                <div className="flex bg-white rounded-lg border-2 border-black overflow-hidden h-8">
+                                    <button onClick={() => setSettings({size: '2K'})} className={`px-2 text-xs font-bold flex items-center ${settings.size === '2K' ? 'bg-yellow-300' : 'bg-white hover:bg-gray-50'}`}>2K</button>
+                                    <div className="w-[2px] bg-black"></div>
+                                    <button onClick={() => setSettings({size: '4K'})} className={`px-2 text-xs font-bold flex items-center ${settings.size === '4K' ? 'bg-yellow-300' : 'bg-white hover:bg-gray-50'}`}>4K</button>
                                 </div>
+
+                                <button onClick={handleResetSuperTask} className="w-8 h-8 bg-white border-2 border-black rounded-full active:scale-95 transition-transform flex items-center justify-center" title="重置"><RotateCcw size={14} /></button>
+                                <button onClick={openSaveSequenceModal} className="w-8 h-8 bg-white border-2 border-black rounded-full active:scale-95 transition-transform flex items-center justify-center" title="保存序列"><Save size={14} /></button>
+                                <button onClick={() => setShowSeqModal(true)} className="w-8 h-8 bg-white border-2 border-black rounded-full active:scale-95 transition-transform flex items-center justify-center" title="加载序列"><List size={14} /></button>
                             </div>
                         </div>
                         
                         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col space-y-4">
-                            {/* Global Refs - Grid 5 cols */}
+                            {/* Global Refs */}
                             <div className="bg-white p-2 border-2 border-black rounded-lg">
-                                <div className="text-xs font-bold mb-2">全局参考图 (自动标记)</div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="text-xs font-bold">全局参考图 (自动标记)</div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-red-500">循环替换模式</span>
+                                        <button onClick={() => setLoopMode(!loopMode)} className={`w-8 h-4 rounded-full border border-black flex items-center px-0.5 transition-colors ${loopMode ? 'bg-green-400' : 'bg-gray-200'}`}>
+                                            <div className={`w-3 h-3 bg-white border border-black rounded-full transform transition-transform ${loopMode ? 'translate-x-4' : ''}`}></div>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {loopMode && (
+                                    <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                                        <div className="font-bold mb-1 flex items-center gap-1"><Repeat2 size={12}/> 循环替换配置</div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span>目标位置:</span>
+                                            <select value={targetRefId} onChange={(e) => setTargetRefId(parseInt(e.target.value))} className="border border-black rounded bg-white px-1">
+                                                {globalRefs.length > 0 ? globalRefs.map(r => <option key={r.id} value={r.id}>pic{r.id}</option>) : <option value={1}>pic1</option>}
+                                            </select>
+                                            <span className="text-gray-500">将在此位置依次填入下方图片</span>
+                                        </div>
+                                        {/* Updated Grid for Loop Images */}
+                                        <div className="grid grid-cols-5 gap-2 py-1">
+                                            {batchImages.map((img, i) => (
+                                                <div key={i} className="aspect-square border border-black rounded overflow-hidden bg-white">
+                                                    <img src={img.preview} className="w-full h-full object-cover"/>
+                                                </div>
+                                            ))}
+                                            <label className="aspect-square border border-dashed border-black rounded flex items-center justify-center bg-white cursor-pointer">
+                                                <Plus size={12}/><input type="file" multiple className="hidden" onChange={handleBatchImagesUpload}/>
+                                            </label>
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 mt-1">上传几张图就执行几轮任务</div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-5 gap-2">
                                     {globalRefs.map(ref => (
                                         <div key={ref.id} className="relative aspect-square border border-black rounded overflow-hidden group">
@@ -704,6 +1039,38 @@
                             {isProcessing ? '任务序列执行中...' : '开始超级任务'}
                         </button>
                     </div>
+                    
+                    {showSeqModal && (
+                        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                            <div className="cartoon-box bg-white w-full max-w-sm p-4 flex flex-col max-h-[70vh] animate-bounce-in">
+                                <div className="flex justify-between items-center mb-2"><h3 className="font-bold">已存任务序列 (最多10组)</h3><button onClick={() => setShowSeqModal(false)}><X size={20}/></button></div>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                                    {savedSequences.length === 0 ? <div className="text-center text-gray-400 text-xs py-4">暂无保存的序列</div> : 
+                                    savedSequences.map((s, i) => (
+                                        <div key={s.id || i} className="flex gap-2 items-center border-b border-gray-100 pb-2">
+                                            <div onClick={() => loadSequence(s)} className="flex-1 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                                <div className="font-bold text-xs">{s.name}</div>
+                                                <div className="text-[10px] text-gray-500">{s.subTasks.length} 个步骤</div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <button onClick={() => openRenameSequenceModal(s.id, s.name)} className="text-blue-500 p-1 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                <button onClick={() => deleteSequence(s.id)} className="text-red-500 p-1 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Input Modal */}
+                    <InputModal 
+                        isOpen={inputModal.show} 
+                        title={inputModal.title} 
+                        defaultValue={inputModal.defaultValue} 
+                        onConfirm={inputModal.onConfirm} 
+                        onCancel={() => setInputModal(prev => ({ ...prev, show: false }))} 
+                    />
                 </div>
             )
         }
@@ -730,15 +1097,13 @@
                 addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings });
                 
                 try {
-                    // 1. Submit ONLY
                     const taskId = await submitDrawTask(prompt, settings.ratio, settings.size, [], config);
                     
                     const isMock = taskId.toString().startsWith("mock-");
-                    setIsSubmitting(false); // Release UI immediately
+                    setIsSubmitting(false); 
                     setPrompt(""); 
                     showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
                     
-                    // 2. Poll in background (detached)
                     pollTaskResult(taskId, (p) => updateHistory(tempId, { progress: p }), config)
                         .then(url => updateHistory(tempId, { url, status: 'success', isMock, prompt: prompt }))
                         .catch(e => updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }));
@@ -749,7 +1114,7 @@
                     updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }); 
                 }
             };
-            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}>{isSubmitting ? '提交中...' : <><Play size={20} /> 开始生成</>}</button></div></div>);
+            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}>{isSubmitting ? '提交中...' : <><Play size={20} /> 开始生成</>}</button></div></div>);
         };
 
         // --- Img2Img ---
@@ -781,7 +1146,6 @@
             useEffect(() => {
                 if (editingTask && editingTask.type === 'img2img') {
                     setPrompt(editingTask.prompt);
-                    // 恢复参考图
                     if (editingTask.extraData && editingTask.extraData.refs) {
                         const restoredRefs = editingTask.extraData.refs.map(url => ({ preview: url, file: null, url }));
                         setRefs(restoredRefs);
@@ -846,7 +1210,7 @@
                     const taskId = await submitDrawTask(prompt, finalRatio, settings.size, uploadedUrls, config);
                     
                     const isMock = taskId.toString().startsWith("mock-");
-                    setIsSubmitting(false); // Release UI
+                    setIsSubmitting(false); 
                     setPrompt(""); 
                     showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
 
@@ -862,9 +1226,9 @@
             };
             return (
                 <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-                    {/* 3. 布局调整：Ref Images 上方，Prompt 下方 */}
                     <div className="flex gap-2 overflow-x-auto pb-2 mb-2 flex-shrink-0">{refs.map((ref, idx) => (<div key={idx} className="relative w-24 h-24 flex-shrink-0 border-2 border-black rounded-lg overflow-hidden bg-white group"><img src={ref.preview} className="w-full h-full object-cover" /><button onClick={() => removeRef(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 border border-black shadow hover:scale-110 active:scale-90 transition-transform"><X size={12} /></button><div className="absolute bottom-0 right-0 bg-black text-white text-[10px] px-1">{idx+1}</div></div>))}<label className="w-24 h-24 flex-shrink-0 border-2 border-dashed border-black rounded-lg flex flex-col items-center justify-center bg-white cursor-pointer active:bg-gray-200"><Plus size={24} /><span className="text-xs font-bold">添加</span><input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} /></label></div>
                     <textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[100px]" placeholder="输入补充提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} />
+                    <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} />
                     <SettingsPanel settings={settings} setSettings={setSettings} customRatio={customPicRatio} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}>{isSubmitting ? '提交中...' : '开始转换'}</button></div></div>
             );
         };
