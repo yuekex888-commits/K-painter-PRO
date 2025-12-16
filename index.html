@@ -2,9 +2,15 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- Updated Viewport for PWA and Notch/Dynamic Island Support -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="K-painter">
+    <meta name="format-detection" content="telephone=no">
+
     <title>K-painter PRO</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +25,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 25px 0 0 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; box-sizing: border-box; }
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
         #root { height: 100%; width: 100%; }
         .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
         .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; }
@@ -73,6 +79,16 @@
         }
         .check-circle.checked {
             background: #FFD700;
+        }
+        
+        /* Prevent text selection during long press */
+        .noselect {
+            -webkit-touch-callout: none; /* iOS Safari */
+            -webkit-user-select: none; /* Safari */
+            -khtml-user-select: none; /* Konqueror HTML */
+            -moz-user-select: none; /* Old versions of Firefox */
+            -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
         }
     </style>
 </head>
@@ -518,7 +534,7 @@
         };
 
         const Header = ({ onSettings }) => (
-            <div className="flex-none flex items-center justify-between p-4 bg-white border-b-4 border-black z-20 relative">
+            <div className="flex-none flex items-center justify-between px-4 pb-4 pt-[max(25px,env(safe-area-inset-top))] bg-white border-b-4 border-black z-20 relative">
                 <div className="flex items-center gap-2"><div className="w-10 h-10 bg-yellow-400 rounded-lg border-2 border-black flex items-center justify-center"><Wand2 size={24} color="black" /></div><h1 className="text-2xl font-black tracking-tighter">K-painter PRO</h1></div>
                 <div className="flex gap-2"><button onClick={onSettings} className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"><Settings size={20} /></button><div className="px-2 py-1 bg-green-400 border-2 border-black rounded-full text-xs font-bold flex items-center">ONLINE</div></div>
             </div>
@@ -549,7 +565,7 @@
         }
         const TabBar = ({ activeTab, setTab }) => {
             const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
-            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-0 flex justify-around items-end z-50 h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex justify-around items-end z-50 h-auto">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
         };
 
         // --- SuperTaskMode ---
@@ -786,8 +802,19 @@
                           const histId = Date.now() + task.id + (sequenceIndex * 1000); // Unique IDs per sequence loop
                           taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
                           let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
-                          // Initial Add
-                          addToHistory({ id: histId, type: 'img2img', url: '', prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, date: new Date(), status: 'analyzing', progress: 0, isMock: false, extraData: { refs: [] }, settings: settings });
+                          // Initial Add. IMPORTANT: Store settings here!
+                          addToHistory({ 
+                              id: histId, 
+                              type: 'img2img', 
+                              url: '', 
+                              prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, 
+                              date: new Date(), 
+                              status: 'analyzing', 
+                              progress: 0, 
+                              isMock: false, 
+                              extraData: { refs: [] }, 
+                              settings: settings // PERSIST SETTINGS
+                          });
                           historyIds.push(histId);
                       });
 
@@ -872,10 +899,10 @@
                                   }
                               }
 
-                              // Replace tags in prompt with "图N"
+                              // Replace tags in prompt with "[picN]"
                               finalPrompt = finalPrompt.replace(tagRegex, (m) => {
                                   const idx = tagToIndexMap[m];
-                                  return idx ? `图${idx}` : m;
+                                  return idx ? `[pic${idx}]` : m;
                               });
 
                               // Append local refs (if any) - mapped to next available indices
@@ -1163,7 +1190,7 @@
                     updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }); 
                 }
             };
-            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
+            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
         };
 
         // --- Img2Img ---
@@ -1279,7 +1306,7 @@
                 }
             };
             return (
-                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
                     <div className="flex gap-2 overflow-x-auto pb-2 mb-2 flex-shrink-0">{refs.map((ref, idx) => (<div key={idx} className="relative w-24 h-24 flex-shrink-0 border-2 border-black rounded-lg overflow-hidden bg-white group"><img src={ref.preview} className="w-full h-full object-cover" /><button onClick={() => removeRef(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 border border-black shadow hover:scale-110 active:scale-90 transition-transform"><X size={12} /></button><div className="absolute bottom-0 right-0 bg-black text-white text-[10px] px-1">{idx+1}</div></div>))}<label className="w-24 h-24 flex-shrink-0 border-2 border-dashed border-black rounded-lg flex flex-col items-center justify-center bg-white cursor-pointer active:bg-gray-200"><Plus size={24} /><span className="text-xs font-bold">添加</span><input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} /></label></div>
                     <textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[100px]" placeholder="输入补充提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} />
                     <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_img2img" />
@@ -1357,7 +1384,19 @@
                         groups.forEach((group, i) => {
                             const tempId = Date.now() + i;
                             historyIds.push(tempId);
-                            addToHistory({ id: tempId, type: 'inpaint_step', url: '', prompt: '正在进行视觉识别...', date: new Date(), isMock: false, status: 'analyzing', progress: 0, extraData: { baseImageUrl: currentBaseImgUrl, baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height }, points: [], refs: [] } });
+                            // IMPORTANT FIX: Save processingSettings to history
+                            addToHistory({ 
+                                id: tempId, 
+                                type: 'inpaint_step', 
+                                url: '', 
+                                prompt: '正在进行视觉识别...', 
+                                date: new Date(), 
+                                isMock: false, 
+                                status: 'analyzing', 
+                                progress: 0, 
+                                extraData: { baseImageUrl: currentBaseImgUrl, baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height }, points: [], refs: [] },
+                                settings: processingSettings // PERSIST SETTINGS
+                            });
                         });
 
                         historyIds.forEach(id => updateHistory(id, { prompt: "视觉模型正在并行识别中..." }));
@@ -1456,7 +1495,7 @@
             };
 
             return (
-                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({...settings, size: '2K'})} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({...settings, size: '4K'})} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({...settings, size: '2K'})} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({...settings, size: '4K'})} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
                       {activePoint && (
                           <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
                               <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in">
@@ -1481,6 +1520,8 @@
             // Batch Selection State
             const [isSelectionMode, setIsSelectionMode] = useState(false);
             const [selectedIds, setSelectedIds] = useState(new Set());
+            const timerRef = useRef(null);
+            const isLongPressRef = useRef(false);
 
             const toggleSelection = (id) => {
                 const newSet = new Set(selectedIds);
@@ -1522,7 +1563,6 @@
                 if (urls.length === 0) return showToast("选中的任务没有有效的链接", "error");
 
                 const text = urls.join('\n');
-                // Use execCommand for iframe compatibility
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
                 document.body.appendChild(textArea);
@@ -1545,25 +1585,54 @@
                 showToast("批量删除完成");
             };
 
+            // Touch/Press Handlers
+            const handleTouchStart = (id) => {
+                if (!isSelectionMode) {
+                    isLongPressRef.current = false;
+                    timerRef.current = setTimeout(() => {
+                        setIsSelectionMode(true);
+                        toggleSelection(id);
+                        isLongPressRef.current = true;
+                        if (navigator.vibrate) navigator.vibrate(50);
+                    }, 600);
+                }
+            };
+
+            const handleTouchEnd = () => {
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+            };
+
+            const handleCardClick = (e, item) => {
+                // If it was a long press, stop here (selection already toggled in timeout)
+                if (isLongPressRef.current) {
+                    isLongPressRef.current = false;
+                    return;
+                }
+                
+                if (isSelectionMode) {
+                    toggleSelection(item.id);
+                } else {
+                    setActionItem(item);
+                }
+            };
+
             return (
-                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in">
                     <div className="cartoon-box flex-1 flex flex-col p-4 bg-purple-100 overflow-hidden">
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h2 className="text-xl font-black flex items-center gap-2">
                                 作品集 ({history.length})
                             </h2>
                             <div className="flex gap-2">
-                                <button onClick={() => setIsSelectionMode(!isSelectionMode)} className={`p-2 border-2 border-black rounded-full active:scale-95 transition-transform ${isSelectionMode ? 'bg-yellow-400' : 'bg-white'}`} title="批量选择">
-                                    <CheckSquare size={20} />
-                                </button>
-                                <button onClick={onBatchDownload} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="批量下载所有成功图片">
-                                    <DownloadCloud size={20} />
-                                </button>
+                                {/* Removed Cloud Download and CheckSquare buttons */}
                             </div>
                         </div>
                         
                         {isSelectionMode && (
-                            <div className="flex gap-2 mb-2 justify-between items-center bg-white p-2 rounded-lg border-2 border-black">
+                            <div className="flex gap-2 mb-2 justify-between items-center bg-white p-2 rounded-lg border-2 border-black animate-fade-in">
                                 <span className="text-xs font-bold ml-1">已选: {selectedIds.size}</span>
                                 <div className="flex gap-2">
                                     <button onClick={selectAll} className="text-xs underline font-bold">全选/取消</button>
@@ -1573,15 +1642,18 @@
                         )}
 
                         <div className="flex-1 overflow-y-auto min-h-0">
-                            <div className="grid grid-cols-3 gap-2 pb-20"> {/* pb-20 for floating bar */}
+                            <div className="grid grid-cols-3 gap-2 pb-20">
                                 {history.map((item, idx) => (
                                     <div 
                                         key={item.id || idx} 
-                                        className={`bg-white border-2 border-black rounded-lg overflow-hidden group relative aspect-[3/4] cursor-pointer active:scale-95 transition-transform ${isSelectionMode && selectedIds.has(item.id) ? 'selected-card' : ''}`} 
-                                        onClick={() => {
-                                            if (isSelectionMode) toggleSelection(item.id);
-                                            else setActionItem(item);
-                                        }} 
+                                        className={`bg-white border-2 border-black rounded-lg overflow-hidden group relative aspect-[3/4] cursor-pointer active:scale-95 transition-transform noselect ${isSelectionMode && selectedIds.has(item.id) ? 'selected-card' : ''}`} 
+                                        onTouchStart={() => handleTouchStart(item.id)}
+                                        onTouchEnd={handleTouchEnd}
+                                        onMouseDown={() => handleTouchStart(item.id)} // Desktop support
+                                        onMouseUp={handleTouchEnd}
+                                        onMouseLeave={handleTouchEnd}
+                                        onClick={(e) => handleCardClick(e, item)}
+                                        onContextMenu={(e) => e.preventDefault()}
                                         onDoubleClick={(e) => { 
                                             e.stopPropagation(); 
                                             if (!isSelectionMode) setSelectedImg(item.url); 
@@ -1614,7 +1686,7 @@
                                     </div>
                                 ))}
                             </div>
-                            {history.length === 0 && <div className="text-center text-gray-500 mt-20 font-bold">暂无作品，快去创造吧！</div>}
+                            {history.length === 0 && <div className="text-center text-gray-500 mt-20 font-bold">暂无作品，长按任务可多选</div>}
                         </div>
                         
                         {/* Floating Batch Action Bar */}
@@ -1694,28 +1766,28 @@
                     let urls = [];
 
                     if (task.type === 'txt2img') {
+                        // FIX: Explicitly restore ratio from saved settings
                         ratio = task.settings?.ratio || "1:1";
                         size = task.settings?.size || "2K";
                         urls = [];
                     } else if (task.type === 'img2img') {
+                        // FIX: Explicitly restore ratio from saved settings
                         ratio = task.settings?.ratio || "1:1";
-                        // If ratio was "PIC", we need to hope it's preserved or fallback
-                        if (ratio === "PIC") ratio = "1:1"; // Fallback if exact ratio lost, or assume backend handles if we send it
+                        if (ratio === "PIC") ratio = "1:1"; // Fallback if exact ratio lost
                         size = task.settings?.size || "2K";
                         urls = task.extraData?.refs || [];
                     } else if (task.type === 'inpaint_step') {
-                        // For inpaint, extraData.refs should contain the [base, ...refs] list
                         urls = task.extraData?.refs || [];
-                        // Fallback: if refs missing (old history), try to reconstruct?
-                        // But we fixed InpaintMode to save refs now.
                         if (urls.length === 0 && task.extraData?.baseImageUrl) {
                             urls = [task.extraData.baseImageUrl];
                         }
-                        // Use stored dims for ratio if available
-                        if (task.extraData?.baseImageDims) {
+                        // FIX: Use saved settings first, fallback to original dims if available
+                        if (task.settings && task.settings.ratio !== "ORIGINAL") {
+                             ratio = task.settings.ratio;
+                             size = task.settings.size || "2K";
+                        } else if (task.extraData?.baseImageDims) {
                             ratio = `${task.extraData.baseImageDims.width}:${task.extraData.baseImageDims.height}`;
                         }
-                        size = "2K"; // Default or stored? InpaintMode uses processingSettings.size
                     }
 
                     // Use runTaskWithRetry for automatic 10x retry
@@ -1740,10 +1812,19 @@
                 const tempId = Date.now();
                 let newExtraData = task.extraData ? JSON.parse(JSON.stringify(task.extraData)) : {};
                 
-                // For SuperTask copy, ensure refs are preserved
+                // Ensure refs preserved for copy
                 if (task.type === 'img2img' && !newExtraData.refs) newExtraData.refs = [];
 
-                addToHistory({ ...task, id: tempId, date: new Date(), status: 'generating', progress: 0, extraData: newExtraData });
+                // FIX: Ensure settings (ratio/size) are copied to new task history
+                addToHistory({ 
+                    ...task, 
+                    id: tempId, 
+                    date: new Date(), 
+                    status: 'generating', 
+                    progress: 0, 
+                    extraData: newExtraData,
+                    settings: task.settings // IMPORTANT: Carry over settings
+                });
                 
                 try {
                     // Logic similar to handleRerun but for a new ID
@@ -1761,7 +1842,11 @@
                         imageSize = task.settings?.size || "2K";
                     } else if (task.type === 'inpaint_step') {
                         urls = task.extraData?.refs || [];
-                         if (task.extraData?.baseImageDims) {
+                        // Logic matching handleRerun
+                        if (task.settings && task.settings.ratio !== "ORIGINAL") {
+                             aspectRatio = task.settings.ratio;
+                             imageSize = task.settings.size || "2K";
+                        } else if (task.extraData?.baseImageDims) {
                             aspectRatio = `${task.extraData.baseImageDims.width}:${task.extraData.baseImageDims.height}`;
                         }
                     }
@@ -1778,7 +1863,11 @@
                 } catch (e) { showToast("复制失败: " + e.message, "error"); updateHistory(tempId, { status: 'failed' }); }
             };
 
-            const handleEdit = (task) => { setEditingTask(task); setTab(task.type === 'inpaint_step' ? 'inpaint' : task.type); showToast("已还原任务内容"); };
+            const handleEdit = (task) => { 
+                setEditingTask(task); 
+                setTab(task.type === 'inpaint_step' ? 'inpaint' : task.type); 
+                showToast("已还原任务内容"); 
+            };
             const handleSendToImg2Img = (url) => { setTransferData({ target: 'img2img', payload: url }); setTab('img2img'); };
             const handleSendToInpaint = (url) => { setTransferData({ target: 'inpaint', payload: url }); setTab('inpaint'); };
 
