@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="K-painter">
+    <meta name="format-detection" content="telephone=no">
+
     <title>K-painter PRO</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +24,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 25px 0 0 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; box-sizing: border-box; }
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
         #root { height: 100%; width: 100%; }
         .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
         .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; }
@@ -528,7 +533,7 @@
         };
 
         const Header = ({ onSettings }) => (
-            <div className="flex-none flex items-center justify-between p-4 bg-white border-b-4 border-black z-20 relative">
+            <div className="flex-none flex items-center justify-between px-4 pb-4 pt-[max(25px,env(safe-area-inset-top))] bg-white border-b-4 border-black z-20 relative">
                 <div className="flex items-center gap-2"><div className="w-10 h-10 bg-yellow-400 rounded-lg border-2 border-black flex items-center justify-center"><Wand2 size={24} color="black" /></div><h1 className="text-2xl font-black tracking-tighter">K-painter PRO</h1></div>
                 <div className="flex gap-2"><button onClick={onSettings} className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"><Settings size={20} /></button><div className="px-2 py-1 bg-green-400 border-2 border-black rounded-full text-xs font-bold flex items-center">ONLINE</div></div>
             </div>
@@ -559,7 +564,7 @@
         }
         const TabBar = ({ activeTab, setTab }) => {
             const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
-            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-0 flex justify-around items-end z-50 h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex justify-around items-end z-50 h-auto">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
         };
 
         // --- SuperTaskMode ---
@@ -1272,7 +1277,13 @@
                 const tempId = Date.now();
                 
                 try {
-                    const uploadedUrls = await Promise.all(refs.map(r => r.file ? uploadImageToQiniu(r.file, config) : Promise.resolve(r.url || r.preview)));
+                    // FIX: Changed from Promise.all to sequential loop to ensure linear upload order
+                    const uploadedUrls = [];
+                    for (const r of refs) {
+                        const url = r.file ? await uploadImageToQiniu(r.file, config) : (r.url || r.preview);
+                        uploadedUrls.push(url);
+                    }
+
                     let finalRatio = settings.ratio;
                     if (settings.ratio === "PIC") finalRatio = customPicRatio || "1:1";
                     
@@ -1434,18 +1445,20 @@
                             const groupRefs = [currentBaseImgUrl];
                             let refCounter = 2; // 修复：参考图1是底图，所以新增的参考图从2开始计数
                             
-                            const finalGroupPoints = await Promise.all(group.map(async (p) => {
+                            // FIX: Use sequential for loop instead of Promise.all mapping to ensure strict order of groupRefs
+                            const finalGroupPoints = [];
+                            for (const p of group) {
                                 let finalPrompt = p.generatedPrompt;
                                 let refUrl = null;
 
                                 if ((p.mode === 'add' || p.mode === 'replace') && p.refImg) {
-                                    refUrl = await uploadImageToQiniu(p.refImg, config);
+                                    refUrl = await uploadImageToQiniu(p.refImg, config); // Sequential Upload
                                     groupRefs.push(refUrl);
                                     // Replace PLACEHOLDER with counter
                                     finalPrompt = finalPrompt.replace("PLACEHOLDER", refCounter++);
                                 }
-                                return { ...p, generatedPrompt: finalPrompt, refImg: refUrl };
-                            }));
+                                finalGroupPoints.push({ ...p, generatedPrompt: finalPrompt, refImg: refUrl });
+                            }
 
                             // IMPORTANT FIX: Save refs in history so rerun works
                             updateHistory(tempId, {
