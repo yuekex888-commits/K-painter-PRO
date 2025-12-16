@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>K-painter PRO</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 25px 0 0 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; box-sizing: border-box; }
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
         #root { height: 100%; width: 100%; }
         .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
         .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; }
@@ -51,6 +49,29 @@
         }
         .tag-pic { background-color: #FED7AA; } /* Orange-200 */
         .tag-result { background-color: #BBF7D0; } /* Green-200 */
+        
+        /* Selection Styles */
+        .selected-card {
+            border-color: #FFD700 !important;
+            box-shadow: 0 0 0 4px #FFD700 !important;
+        }
+        .check-circle {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .check-circle.checked {
+            background: #FFD700;
+        }
     </style>
 </head>
 <body>
@@ -86,10 +107,12 @@
             Save: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>),
             List: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>),
             Repeat2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m2 9 3-3 3 3"/><path d="M13 6H5v14"/><path d="m22 15-3 3-3-3"/><path d="M11 18h8V4"/></svg>),
-            ExternalLink: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>)
+            ExternalLink: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>),
+            Check: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
+            CheckSquare: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>)
         };
         
-        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink } = Icons;
+        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink, Check, CheckSquare } = Icons;
 
         // ================= Config =================
         const DEFAULT_CONFIG = {
@@ -524,7 +547,7 @@
         }
         const TabBar = ({ activeTab, setTab }) => {
             const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
-            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-0 flex justify-around items-end z-50 h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
         };
 
         // --- SuperTaskMode ---
@@ -908,8 +931,11 @@
                             globalRefPreviews[`pic${ref.id}`] = ref.preview;
                         }
 
+                        // RELEASE BUTTON HERE: After uploads and setup are done, release the button.
+                        setIsProcessing(false); 
+                        showToast("超级任务后台运行中...");
+
                         if (loopMode) {
-                            showToast(`开始执行循环任务，共 ${batchImages.length} 轮`);
                             for (let i = 0; i < batchImages.length; i++) {
                                 // Upload current batch image
                                 const batchImgUrl = await uploadImageToQiniu(batchImages[i].file, config);
@@ -927,9 +953,6 @@
                             await runSequence(globalRefUrls, globalRefPreviews);
                         }
                         
-                        setIsProcessing(false);
-                        showToast("所有任务已提交/完成", "success");
-
                       } catch (e) {
                           console.error(e);
                           setIsProcessing(false);
@@ -1057,7 +1080,7 @@
 
                         <button onClick={executeSuperTask} disabled={isProcessing} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2 ${isProcessing ? 'opacity-50' : ''}`}>
                             <Play size={20} />
-                            {isProcessing ? '执行中...' : '开始执行'}
+                            {isProcessing ? '提交中...' : '开始执行'}
                         </button>
                     </div>
                     
@@ -1310,6 +1333,7 @@
                 const processingBaseImage = { ...baseImage }; 
                 const processingSettings = { ...settings };
 
+                // Clear local state immediately for UX
                 setBaseImage(null);
                 setPoints([]);
                 setActivePoint(null);
@@ -1448,23 +1472,170 @@
         };
 
         // ... HistoryView ...
-        const HistoryView = ({ history, onRerun, onEdit, onDelete, onSendToImg2Img, onSendToInpaint, onCopy, onBatchDownload, onCopyLink }) => {
+        const HistoryView = ({ history, onRerun, onEdit, onDelete, onSendToImg2Img, onSendToInpaint, onCopy, onBatchDownload, onCopyLink, showToast }) => {
             const [selectedImg, setSelectedImg] = useState(null); 
             const [actionItem, setActionItem] = useState(null); 
+            
+            // Batch Selection State
+            const [isSelectionMode, setIsSelectionMode] = useState(false);
+            const [selectedIds, setSelectedIds] = useState(new Set());
+
+            const toggleSelection = (id) => {
+                const newSet = new Set(selectedIds);
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
+                setSelectedIds(newSet);
+            };
+
+            const selectAll = () => {
+                if (selectedIds.size === history.length) setSelectedIds(new Set());
+                else setSelectedIds(new Set(history.map(item => item.id)));
+            };
+
+            const exitSelectionMode = () => {
+                setIsSelectionMode(false);
+                setSelectedIds(new Set());
+            };
+
+            const handleBatchOpen = () => {
+                if (selectedIds.size === 0) return;
+                const urls = [];
+                selectedIds.forEach(id => {
+                    const item = history.find(h => h.id === id);
+                    if (item && item.url) urls.push(item.url);
+                });
+                if (urls.length === 0) return showToast("选中的任务没有有效的链接", "error");
+                
+                showToast(`正在打开 ${urls.length} 个链接，请允许弹窗...`);
+                urls.forEach(url => window.open(url, '_blank'));
+            };
+
+            const handleBatchCopyUrls = () => {
+                if (selectedIds.size === 0) return;
+                const urls = [];
+                selectedIds.forEach(id => {
+                    const item = history.find(h => h.id === id);
+                    if (item && item.url) urls.push(item.url);
+                });
+                if (urls.length === 0) return showToast("选中的任务没有有效的链接", "error");
+
+                const text = urls.join('\n');
+                // Use execCommand for iframe compatibility
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(`已复制 ${urls.length} 个链接`);
+                } catch (err) {
+                    showToast("复制失败", "error");
+                }
+                document.body.removeChild(textArea);
+            };
+
+            const handleBatchDelete = () => {
+                if (selectedIds.size === 0) return;
+                if (!confirm(`确定删除选中的 ${selectedIds.size} 个任务吗？`)) return;
+                
+                selectedIds.forEach(id => onDelete(id));
+                setSelectedIds(new Set());
+                showToast("批量删除完成");
+            };
+
             return (
                 <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
                     <div className="cartoon-box flex-1 flex flex-col p-4 bg-purple-100 overflow-hidden">
                         <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                            <h2 className="text-xl font-black">作品集 ({history.length})</h2>
-                            <button onClick={onBatchDownload} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="批量下载所有成功图片">
-                                <DownloadCloud size={20} />
-                            </button>
+                            <h2 className="text-xl font-black flex items-center gap-2">
+                                作品集 ({history.length})
+                            </h2>
+                            <div className="flex gap-2">
+                                <button onClick={() => setIsSelectionMode(!isSelectionMode)} className={`p-2 border-2 border-black rounded-full active:scale-95 transition-transform ${isSelectionMode ? 'bg-yellow-400' : 'bg-white'}`} title="批量选择">
+                                    <CheckSquare size={20} />
+                                </button>
+                                <button onClick={onBatchDownload} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="批量下载所有成功图片">
+                                    <DownloadCloud size={20} />
+                                </button>
+                            </div>
                         </div>
+                        
+                        {isSelectionMode && (
+                            <div className="flex gap-2 mb-2 justify-between items-center bg-white p-2 rounded-lg border-2 border-black">
+                                <span className="text-xs font-bold ml-1">已选: {selectedIds.size}</span>
+                                <div className="flex gap-2">
+                                    <button onClick={selectAll} className="text-xs underline font-bold">全选/取消</button>
+                                    <button onClick={exitSelectionMode} className="text-xs text-red-500 font-bold">退出</button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex-1 overflow-y-auto min-h-0">
-                            <div className="grid grid-cols-3 gap-2">{history.map((item, idx) => (<div key={item.id || idx} className="bg-white border-2 border-black rounded-lg overflow-hidden group relative aspect-[3/4] cursor-pointer active:scale-95 transition-transform" onClick={() => setActionItem(item)} onDoubleClick={(e) => { e.stopPropagation(); setSelectedImg(item.url); }} >{item.status === 'generating' || item.status === 'analyzing' ? (<div className="w-full h-full flex flex-col items-center justify-center bg-gray-200"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div><span className="text-[8px] mt-2 font-bold px-1 text-center leading-tight">{item.status === 'analyzing' ? '分析中...' : `生成中 ${item.progress || 0}%`}</span></div>) : item.status === 'failed' ? (<div className="w-full h-full flex items-center justify-center bg-red-100"><span className="text-xs font-bold text-red-500">失败</span></div>) : (<><img src={item.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" /></>)}<div className="absolute bottom-0 left-0 right-0 p-1 text-[8px] font-bold truncate border-t-2 border-black bg-white flex justify-between"><span>{item.type.toUpperCase()}</span>{item.isMock && <span className="text-red-500">DEMO</span>}</div></div>))}</div>
+                            <div className="grid grid-cols-3 gap-2 pb-20"> {/* pb-20 for floating bar */}
+                                {history.map((item, idx) => (
+                                    <div 
+                                        key={item.id || idx} 
+                                        className={`bg-white border-2 border-black rounded-lg overflow-hidden group relative aspect-[3/4] cursor-pointer active:scale-95 transition-transform ${isSelectionMode && selectedIds.has(item.id) ? 'selected-card' : ''}`} 
+                                        onClick={() => {
+                                            if (isSelectionMode) toggleSelection(item.id);
+                                            else setActionItem(item);
+                                        }} 
+                                        onDoubleClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (!isSelectionMode) setSelectedImg(item.url); 
+                                        }} 
+                                    >
+                                        {/* Selection Checkbox Overlay */}
+                                        {isSelectionMode && (
+                                            <div className={`check-circle ${selectedIds.has(item.id) ? 'checked' : ''}`}>
+                                                {selectedIds.has(item.id) && <Check size={16} />}
+                                            </div>
+                                        )}
+
+                                        {item.status === 'generating' || item.status === 'analyzing' ? (
+                                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-200">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
+                                                <span className="text-[8px] mt-2 font-bold px-1 text-center leading-tight">{item.status === 'analyzing' ? '分析中...' : `生成中 ${item.progress || 0}%`}</span>
+                                            </div>
+                                        ) : item.status === 'failed' ? (
+                                            <div className="w-full h-full flex items-center justify-center bg-red-100"><span className="text-xs font-bold text-red-500">失败</span></div>
+                                        ) : (
+                                            <>
+                                                <img src={item.url} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
+                                            </>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 p-1 text-[8px] font-bold truncate border-t-2 border-black bg-white flex justify-between">
+                                            <span>{item.type.toUpperCase()}</span>
+                                            {item.isMock && <span className="text-red-500">DEMO</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                             {history.length === 0 && <div className="text-center text-gray-500 mt-20 font-bold">暂无作品，快去创造吧！</div>}
                         </div>
+                        
+                        {/* Floating Batch Action Bar */}
+                        {isSelectionMode && selectedIds.size > 0 && (
+                            <div className="absolute bottom-4 left-4 right-4 bg-black text-white p-3 rounded-xl shadow-lg flex justify-around items-center animate-bounce-in z-20">
+                                <button onClick={handleBatchOpen} className="flex flex-col items-center gap-1 active:text-yellow-400">
+                                    <ExternalLink size={20}/>
+                                    <span className="text-[10px] font-bold">打开链接</span>
+                                </button>
+                                <div className="w-[1px] h-8 bg-gray-600"></div>
+                                <button onClick={handleBatchCopyUrls} className="flex flex-col items-center gap-1 active:text-yellow-400">
+                                    <Copy size={20}/>
+                                    <span className="text-[10px] font-bold">复制链接</span>
+                                </button>
+                                <div className="w-[1px] h-8 bg-gray-600"></div>
+                                <button onClick={handleBatchDelete} className="flex flex-col items-center gap-1 text-red-400 active:text-red-200">
+                                    <Trash2 size={20}/>
+                                    <span className="text-[10px] font-bold">删除</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
+
                     {selectedImg && (<div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={() => setSelectedImg(null)}><img src={selectedImg} className="max-w-full max-h-full object-contain rounded-lg border-4 border-white" /><button className="absolute top-4 right-4 text-white"><X size={32} /></button></div>)}
                     {actionItem && (
                         <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4" onClick={() => setActionItem(null)}>
@@ -1640,7 +1811,7 @@
                         {activeTab === 'img2img' && <Img2Img addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} />}
                         {activeTab === 'supertask' && <SuperTaskMode addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} state={superTaskState} setState={setSuperTaskState} />}
                         {activeTab === 'inpaint' && <InpaintMode addToHistory={addToHistory} updateHistory={updateHistory} historyItems={history} config={config} showToast={showToast} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} />}
-                        {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} />}
+                        {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} showToast={showToast} />}
                     </main>
                     <TabBar activeTab={activeTab} setTab={setTab} />
                     <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} config={config} setConfig={setConfig} />
