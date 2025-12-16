@@ -245,7 +245,7 @@
             }
             return new Promise((resolve, reject) => {
                 const startTime = Date.now();
-                const timeoutLimit = 500000; 
+                const timeoutLimit = 500000; // 500s timeout as requested
                 let errorCount = 0;
 
                 const interval = setInterval(async () => {
@@ -273,7 +273,7 @@
                             const progress = res.data.progress || 0;
                             if (onProgress) onProgress(progress);
                             if (status === 'succeeded') { clearInterval(interval); resolve(res.data.results[0].url); } 
-                            else if (status === 'failed') { clearInterval(interval); reject(new Error(res.data.failure_reason)); }
+                            else if (status === 'failed') { clearInterval(interval); reject(new Error(res.data.failure_reason || "任务失败")); }
                         }
                     } catch (e) { 
                         console.error("Polling error", e);
@@ -287,6 +287,7 @@
             });
         };
 
+        // Improved runTaskWithRetry to handle Submit failures AND Polling failures including timeout
         const runTaskWithRetry = async (submitFn, pollFn, maxRetries = 10, onRetry) => {
             let attempt = 0;
             while (attempt < maxRetries) {
@@ -298,6 +299,8 @@
                     attempt++;
                     console.warn(`Task failed, retrying (${attempt}/${maxRetries}):`, e);
                     if (onRetry) onRetry(attempt, e.message);
+                    
+                    // Stop if it's a specific user error or something unrecoverable, but here we assume mostly transient
                     if (attempt >= maxRetries) throw e; 
                     await new Promise(r => setTimeout(r, 2000)); 
                 }
@@ -364,24 +367,25 @@
             );
         };
 
-        const PromptManager = ({ currentPrompt, setPrompt, showToast }) => {
+        // Updated PromptManager with storageKey
+        const PromptManager = ({ currentPrompt, setPrompt, showToast, storageKey = 'kpainter_prompts' }) => {
             const [savedPrompts, setSavedPrompts] = useState([]);
             const [showListModal, setShowListModal] = useState(false);
-            
-            // Input Modal States
             const [inputModal, setInputModal] = useState({ show: false, title: '', defaultValue: '', onConfirm: null });
 
             useEffect(() => {
-                const loaded = localStorage.getItem('kpainter_prompts');
+                const loaded = localStorage.getItem(storageKey);
                 if (loaded) {
                     let parsed = JSON.parse(loaded);
                     if (parsed.length > 0 && typeof parsed[0] === 'string') {
                         parsed = parsed.map((p, i) => ({ id: Date.now() + i, name: `提示词 ${i+1}`, content: p }));
-                        localStorage.setItem('kpainter_prompts', JSON.stringify(parsed));
+                        localStorage.setItem(storageKey, JSON.stringify(parsed));
                     }
                     setSavedPrompts(parsed);
+                } else {
+                    setSavedPrompts([]); // Clear if empty key
                 }
-            }, []);
+            }, [storageKey]);
 
             const openSaveModal = () => {
                 if (!currentPrompt.trim()) return showToast("提示词为空", "error");
@@ -394,7 +398,7 @@
                         const newPrompt = { id: Date.now(), name, content: currentPrompt };
                         const newPrompts = [newPrompt, ...savedPrompts].slice(0, 15);
                         setSavedPrompts(newPrompts);
-                        localStorage.setItem('kpainter_prompts', JSON.stringify(newPrompts));
+                        localStorage.setItem(storageKey, JSON.stringify(newPrompts));
                         showToast("提示词已保存");
                         setInputModal(prev => ({ ...prev, show: false }));
                     }
@@ -410,7 +414,7 @@
             const deletePrompt = (id) => {
                 const newPrompts = savedPrompts.filter(p => p.id !== id);
                 setSavedPrompts(newPrompts);
-                localStorage.setItem('kpainter_prompts', JSON.stringify(newPrompts));
+                localStorage.setItem(storageKey, JSON.stringify(newPrompts));
             };
 
             const openRenameModal = (id, oldName) => {
@@ -422,7 +426,7 @@
                         if (!newName) return;
                         const newPrompts = savedPrompts.map(p => p.id === id ? { ...p, name: newName } : p);
                         setSavedPrompts(newPrompts);
-                        localStorage.setItem('kpainter_prompts', JSON.stringify(newPrompts));
+                        localStorage.setItem(storageKey, JSON.stringify(newPrompts));
                         setInputModal(prev => ({ ...prev, show: false }));
                     }
                 });
@@ -757,7 +761,8 @@
                           const histId = Date.now() + task.id + (sequenceIndex * 1000); // Unique IDs per sequence loop
                           taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
                           let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
-                          addToHistory({ id: histId, type: 'img2img', url: '', prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, date: new Date(), status: 'analyzing', progress: 0, isMock: false });
+                          // Initial Add
+                          addToHistory({ id: histId, type: 'img2img', url: '', prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, date: new Date(), status: 'analyzing', progress: 0, isMock: false, extraData: { refs: [] }, settings: settings });
                           historyIds.push(histId);
                       });
 
@@ -860,10 +865,19 @@
                                   aspectRatio = await safeGetAspectRatio(previewUrls[0]);
                               }
 
+                              // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
+                              // This ensures "Rerun" has the correct data even if initial submission fails
+                              updateHistory(statusObj.historyId, { 
+                                  prompt: finalPrompt, 
+                                  extraData: { refs: urls }, 
+                                  settings: settings 
+                              });
+
                               const { url, taskId } = await runTaskWithRetry(
                                   () => submitDrawTask(finalPrompt, aspectRatio, settings.size, urls, config),
                                   (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
-                                  10
+                                  10,
+                                  (attempt) => updateHistory(statusObj.historyId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
                               );
                               
                               const isMock = taskId.toString().startsWith("mock-");
@@ -958,26 +972,26 @@
                                 
                                 {loopMode && (
                                     <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
-                                        <div className="font-bold mb-1 flex items-center gap-1"><Repeat2 size={12}/> 循环替换配置</div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span>目标位置:</span>
-                                            <select value={targetRefId} onChange={(e) => setTargetRefId(parseInt(e.target.value))} className="border border-black rounded bg-white px-1">
-                                                {globalRefs.length > 0 ? globalRefs.map(r => <option key={r.id} value={r.id}>pic{r.id}</option>) : <option value={1}>pic1</option>}
-                                            </select>
-                                            <span className="text-gray-500">将在此位置依次填入下方图片</span>
-                                        </div>
-                                        {/* Updated Grid for Loop Images */}
-                                        <div className="grid grid-cols-5 gap-2 py-1">
-                                            {batchImages.map((img, i) => (
-                                                <div key={i} className="aspect-square border border-black rounded overflow-hidden bg-white">
-                                                    <img src={img.preview} className="w-full h-full object-cover"/>
-                                                </div>
-                                            ))}
-                                            <label className="aspect-square border border-dashed border-black rounded flex items-center justify-center bg-white cursor-pointer">
-                                                <Plus size={12}/><input type="file" multiple className="hidden" onChange={handleBatchImagesUpload}/>
-                                            </label>
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 mt-1">上传几张图就执行几轮任务</div>
+                                            <div className="font-bold mb-1 flex items-center gap-1"><Repeat2 size={12}/> 循环替换配置</div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span>目标位置:</span>
+                                                <select value={targetRefId} onChange={(e) => setTargetRefId(parseInt(e.target.value))} className="border border-black rounded bg-white px-1">
+                                                    {globalRefs.length > 0 ? globalRefs.map(r => <option key={r.id} value={r.id}>pic{r.id}</option>) : <option value={1}>pic1</option>}
+                                                </select>
+                                                <span className="text-gray-500">将在此位置依次填入下方图片</span>
+                                            </div>
+                                            {/* Updated Grid for Loop Images */}
+                                            <div className="grid grid-cols-5 gap-2 py-1">
+                                                {batchImages.map((img, i) => (
+                                                    <div key={i} className="aspect-square border border-black rounded overflow-hidden bg-white">
+                                                        <img src={img.preview} className="w-full h-full object-cover"/>
+                                                    </div>
+                                                ))}
+                                                <label className="aspect-square border border-dashed border-black rounded flex items-center justify-center bg-white cursor-pointer">
+                                                    <Plus size={12}/><input type="file" multiple className="hidden" onChange={handleBatchImagesUpload}/>
+                                                </label>
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 mt-1">上传几张图就执行几轮任务</div>
                                     </div>
                                 )}
 
@@ -1101,27 +1115,30 @@
                 if (!prompt) return showToast("请输入提示词！", "error");
                 setIsSubmitting(true);
                 const tempId = Date.now();
-                addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings });
+                // Store empty refs for consistency
+                addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings, extraData: { refs: [] } });
                 
                 try {
-                    const taskId = await submitDrawTask(prompt, settings.ratio, settings.size, [], config);
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(prompt, settings.ratio, settings.size, [], config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                    );
                     
                     const isMock = taskId.toString().startsWith("mock-");
                     setIsSubmitting(false); 
                     setPrompt(""); 
                     showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
                     
-                    pollTaskResult(taskId, (p) => updateHistory(tempId, { progress: p }), config)
-                        .then(url => updateHistory(tempId, { url, status: 'success', isMock, prompt: prompt }))
-                        .catch(e => updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }));
-
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: prompt });
                 } catch (e) { 
                     setIsSubmitting(false); 
                     showToast(e.message, "error"); 
                     updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }); 
                 }
             };
-            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
+            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
         };
 
         // --- Img2Img ---
@@ -1207,23 +1224,28 @@
                 if (refs.length === 0) return showToast("请上传参考图", "error");
                 setIsSubmitting(true);
                 const tempId = Date.now();
-                const refsForHistory = refs.map(r => r.url || r.preview); 
-                addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: refsForHistory }, settings });
+                
                 try {
                     const uploadedUrls = await Promise.all(refs.map(r => r.file ? uploadImageToQiniu(r.file, config) : Promise.resolve(r.url || r.preview)));
                     let finalRatio = settings.ratio;
                     if (settings.ratio === "PIC") finalRatio = customPicRatio || "1:1";
                     
-                    const taskId = await submitDrawTask(prompt, finalRatio, settings.size, uploadedUrls, config);
+                    // Store URLs for history
+                    addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: uploadedUrls }, settings });
+
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(prompt, finalRatio, settings.size, uploadedUrls, config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                    );
                     
                     const isMock = taskId.toString().startsWith("mock-");
                     setIsSubmitting(false); 
                     setPrompt(""); 
                     showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
 
-                    pollTaskResult(taskId, (p) => updateHistory(tempId, { progress: p }), config)
-                        .then(url => updateHistory(tempId, { url, status: 'success', isMock, prompt }))
-                        .catch(e => updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }));
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt });
 
                 } catch (e) { 
                     setIsSubmitting(false); 
@@ -1235,7 +1257,7 @@
                 <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
                     <div className="flex gap-2 overflow-x-auto pb-2 mb-2 flex-shrink-0">{refs.map((ref, idx) => (<div key={idx} className="relative w-24 h-24 flex-shrink-0 border-2 border-black rounded-lg overflow-hidden bg-white group"><img src={ref.preview} className="w-full h-full object-cover" /><button onClick={() => removeRef(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 border border-black shadow hover:scale-110 active:scale-90 transition-transform"><X size={12} /></button><div className="absolute bottom-0 right-0 bg-black text-white text-[10px] px-1">{idx+1}</div></div>))}<label className="w-24 h-24 flex-shrink-0 border-2 border-dashed border-black rounded-lg flex flex-col items-center justify-center bg-white cursor-pointer active:bg-gray-200"><Plus size={24} /><span className="text-xs font-bold">添加</span><input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} /></label></div>
                     <textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[100px]" placeholder="输入补充提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} />
-                    <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} />
+                    <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_img2img" />
                     <SettingsPanel settings={settings} setSettings={setSettings} customRatio={customPicRatio} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>
             );
         };
@@ -1309,10 +1331,7 @@
                         groups.forEach((group, i) => {
                             const tempId = Date.now() + i;
                             historyIds.push(tempId);
-                            // Important: For history placeholder, keep file objects or use temp URL if available, 
-                            // but usually history data needs serializable URLs. 
-                            // We will update this later after uploads.
-                            addToHistory({ id: tempId, type: 'inpaint_step', url: '', prompt: '正在进行视觉识别...', date: new Date(), isMock: false, status: 'analyzing', progress: 0, extraData: { baseImageUrl: currentBaseImgUrl, baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height }, points: [] } });
+                            addToHistory({ id: tempId, type: 'inpaint_step', url: '', prompt: '正在进行视觉识别...', date: new Date(), isMock: false, status: 'analyzing', progress: 0, extraData: { baseImageUrl: currentBaseImgUrl, baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height }, points: [], refs: [] } });
                         });
 
                         historyIds.forEach(id => updateHistory(id, { prompt: "视觉模型正在并行识别中..." }));
@@ -1352,7 +1371,6 @@
                             const group = analyzedGroups[i];
                             const tempId = historyIds[i];
 
-                            // 2. Fix: Calculate local group ref index (1-based relative to this group's ref array)
                             // Collect ref images for this group
                             const groupRefs = [currentBaseImgUrl];
                             let refCounter = 2; // 修复：参考图1是底图，所以新增的参考图从2开始计数
@@ -1370,11 +1388,13 @@
                                 return { ...p, generatedPrompt: finalPrompt, refImg: refUrl };
                             }));
 
+                            // IMPORTANT FIX: Save refs in history so rerun works
                             updateHistory(tempId, {
                                 extraData: {
                                     baseImageUrl: currentBaseImgUrl,
                                     baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height },
-                                    points: finalGroupPoints // Now contains uploaded URLs in refImg
+                                    points: finalGroupPoints,
+                                    refs: groupRefs 
                                 }
                             });
 
@@ -1387,7 +1407,7 @@
                                     () => submitDrawTask(groupPrompts, baseRatio, processingSettings.size, groupRefs, config),
                                     (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                                     10,
-                                    (attempt) => updateHistory(tempId, { prompt: `生成失败，正在自动重试 (${attempt}/10)...` })
+                                    (attempt) => updateHistory(tempId, { prompt: `${groupPrompts} (自动重试 ${attempt}/10)` })
                                 );
                                 
                                 const isMock = taskId.toString().startsWith("mock-");
@@ -1486,25 +1506,74 @@
             const updateHistory = (id, newProps) => { setHistory(prev => prev.map(item => item.id === id ? { ...item, ...newProps } : item)); };
             const deleteHistory = (id) => { setHistory(prev => prev.filter(item => item.id !== id)); showToast("任务已删除"); };
 
+            // IMPORTANT FIX: handleRerun now uses runTaskWithRetry to ensure automatic restarts
+            // And properly extracts refs from history item
             const handleRerun = async (task) => {
                 showToast("正在原地重启任务...");
-                if (task.type === 'txt2img' || task.type === 'img2img') {
-                    updateHistory(task.id, { status: 'generating', progress: 0 });
-                    try {
-                        const urls = task.extraData?.refs || [];
-                        const taskId = await submitDrawTask(task.prompt, "1:1", "2K", urls, config);
-                        const isMock = taskId.toString().startsWith("mock-");
-                        pollTaskResult(taskId, (p) => updateHistory(task.id, { progress: p }), config).then(url => updateHistory(task.id, { url, status: 'success', isMock })).catch(e => updateHistory(task.id, { status: 'failed' }));
-                    } catch (e) { showToast("重启失败: " + e.message, "error"); updateHistory(task.id, { status: 'failed' }); }
-                } else { showToast("该任务类型暂不支持一键重启，请使用编辑功能", "error"); }
+                // Reset status
+                updateHistory(task.id, { status: 'generating', progress: 0 });
+                
+                try {
+                    // Extract data based on task type
+                    let prompt = task.prompt;
+                    let ratio = "1:1";
+                    let size = "2K";
+                    let urls = [];
+
+                    if (task.type === 'txt2img') {
+                        ratio = task.settings?.ratio || "1:1";
+                        size = task.settings?.size || "2K";
+                        urls = [];
+                    } else if (task.type === 'img2img') {
+                        ratio = task.settings?.ratio || "1:1";
+                        // If ratio was "PIC", we need to hope it's preserved or fallback
+                        if (ratio === "PIC") ratio = "1:1"; // Fallback if exact ratio lost, or assume backend handles if we send it
+                        size = task.settings?.size || "2K";
+                        urls = task.extraData?.refs || [];
+                    } else if (task.type === 'inpaint_step') {
+                        // For inpaint, extraData.refs should contain the [base, ...refs] list
+                        urls = task.extraData?.refs || [];
+                        // Fallback: if refs missing (old history), try to reconstruct?
+                        // But we fixed InpaintMode to save refs now.
+                        if (urls.length === 0 && task.extraData?.baseImageUrl) {
+                            urls = [task.extraData.baseImageUrl];
+                        }
+                        // Use stored dims for ratio if available
+                        if (task.extraData?.baseImageDims) {
+                            ratio = `${task.extraData.baseImageDims.width}:${task.extraData.baseImageDims.height}`;
+                        }
+                        size = "2K"; // Default or stored? InpaintMode uses processingSettings.size
+                    }
+
+                    // Use runTaskWithRetry for automatic 10x retry
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(prompt, ratio, size, urls, config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(task.id, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(task.id, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                    );
+
+                    const isMock = taskId.toString().startsWith("mock-");
+                    updateHistory(task.id, { url, status: 'success', isMock, prompt: prompt }); // Restore prompt text without "retry" suffix
+
+                } catch (e) {
+                    showToast("重启失败: " + e.message, "error");
+                    updateHistory(task.id, { status: 'failed', prompt: `失败: ${e.message}` });
+                }
             };
 
             const handleCopy = async (task) => {
                 showToast("正在复制任务并重新提交...");
                 const tempId = Date.now();
                 let newExtraData = task.extraData ? JSON.parse(JSON.stringify(task.extraData)) : {};
+                
+                // For SuperTask copy, ensure refs are preserved
+                if (task.type === 'img2img' && !newExtraData.refs) newExtraData.refs = [];
+
                 addToHistory({ ...task, id: tempId, date: new Date(), status: 'generating', progress: 0, extraData: newExtraData });
+                
                 try {
+                    // Logic similar to handleRerun but for a new ID
                     let urls = [];
                     let prompt = task.prompt;
                     let aspectRatio = "1:1"; 
@@ -1512,24 +1581,27 @@
 
                     if (task.type === 'img2img') {
                         urls = task.extraData?.refs || [];
-                        aspectRatio = task.settings?.ratio === "PIC" ? "ORIGINAL_RATIO_PLACEHOLDER" : task.settings?.ratio || "1:1"; 
+                        aspectRatio = task.settings?.ratio === "PIC" ? "1:1" : task.settings?.ratio || "1:1"; 
+                        imageSize = task.settings?.size || "2K";
+                    } else if (task.type === 'txt2img') {
+                        aspectRatio = task.settings?.ratio || "1:1";
+                        imageSize = task.settings?.size || "2K";
                     } else if (task.type === 'inpaint_step') {
-                        if (task.extraData?.baseImageUrl) {
-                            urls.push(task.extraData.baseImageUrl);
-                            if (task.extraData.points) {
-                                task.extraData.points.forEach(p => {
-                                    if (p.refImg && typeof p.refImg === 'string') urls.push(p.refImg);
-                                });
-                            }
-                        }
-                        if (task.extraData?.baseImageDims) {
+                        urls = task.extraData?.refs || [];
+                         if (task.extraData?.baseImageDims) {
                             aspectRatio = `${task.extraData.baseImageDims.width}:${task.extraData.baseImageDims.height}`;
                         }
                     }
 
-                    const taskId = await submitDrawTask(prompt, aspectRatio, imageSize, urls, config);
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(prompt, aspectRatio, imageSize, urls, config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                    );
+
                     const isMock = taskId.toString().startsWith("mock-");
-                    pollTaskResult(taskId, (p) => updateHistory(tempId, { progress: p }), config).then(url => updateHistory(tempId, { url, status: 'success', isMock })).catch(e => updateHistory(tempId, { status: 'failed' }));
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: prompt });
                 } catch (e) { showToast("复制失败: " + e.message, "error"); updateHistory(tempId, { status: 'failed' }); }
             };
 
