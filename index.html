@@ -538,7 +538,7 @@
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-                     <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in flex flex-col max-h-[80vh]">
+                      <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in flex flex-col max-h-[80vh]">
                         <div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="text-lg font-black">全局设置</h3><button onClick={onClose}><X size={20} /></button></div>
                         <div className="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500">API Key</label><input type="text" value={tempConfig.apiKey} onChange={(e) => handleChange('apiKey', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
@@ -786,199 +786,202 @@
                  setIsProcessing(true);
 
                  const runSequence = async (currentGlobalRefUrls, currentGlobalRefPreviews, sequenceIndex = 0) => {
-                      const taskStatusMap = {}; 
-                      const historyIds = [];
-                      
-                      // Initialize history items for THIS sequence
-                      subTasks.forEach(task => {
-                          const histId = Date.now() + task.id + (sequenceIndex * 1000); // Unique IDs per sequence loop
-                          taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
-                          let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
-                          // Initial Add. IMPORTANT: Store settings here!
-                          addToHistory({ 
-                              id: histId, 
-                              type: 'img2img', 
-                              url: '', 
-                              prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, 
-                              date: new Date(), 
-                              status: 'analyzing', 
-                              progress: 0, 
-                              isMock: false, 
-                              extraData: { refs: [] }, 
-                              settings: settings // PERSIST SETTINGS
-                          });
-                          historyIds.push(histId);
-                      });
+                       const taskStatusMap = {}; 
+                       const historyIds = [];
+                       
+                       // Initialize history items for THIS sequence
+                       subTasks.forEach(task => {
+                           const histId = Date.now() + task.id + (sequenceIndex * 1000); // Unique IDs per sequence loop
+                           taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
+                           let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
+                           // Initial Add. IMPORTANT: Store settings here!
+                           addToHistory({ 
+                               id: histId, 
+                               type: 'img2img', 
+                               url: '', 
+                               prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, 
+                               date: new Date(), 
+                               status: 'analyzing', 
+                               progress: 0, 
+                               isMock: false, 
+                               extraData: { refs: [] }, 
+                               settings: settings // PERSIST SETTINGS
+                           });
+                           historyIds.push(histId);
+                       });
 
-                      const checkAndRun = async () => {
-                          let allFinished = true;
-                          for (const task of subTasks) {
-                              const statusObj = taskStatusMap[task.id];
-                              if (statusObj.status === 'success' || statusObj.status === 'failed') continue;
-                              allFinished = false;
+                       const checkAndRun = async () => {
+                           let allFinished = true;
+                           for (const task of subTasks) {
+                               const statusObj = taskStatusMap[task.id];
+                               if (statusObj.status === 'success' || statusObj.status === 'failed') continue;
+                               allFinished = false;
 
-                              if (statusObj.status === 'pending') {
-                                  // Check dependencies
-                                  const dependencies = task.prompt.match(/\[result(\d+)\]/g);
-                                  let canRun = true;
-                                  if (dependencies) {
-                                      for (const dep of dependencies) {
-                                          const depId = parseInt(dep.match(/\d+/)[0]);
-                                          if (!taskStatusMap[depId] || !taskStatusMap[depId].resultUrl) {
-                                              canRun = false;
-                                              break;
-                                          }
-                                      }
-                                  }
+                               if (statusObj.status === 'pending') {
+                                   // Check dependencies
+                                   const dependencies = task.prompt.match(/\[result(\d+)\]/g);
+                                   let canRun = true;
+                                   if (dependencies) {
+                                       for (const dep of dependencies) {
+                                           const depId = parseInt(dep.match(/\d+/)[0]);
+                                           if (!taskStatusMap[depId] || !taskStatusMap[depId].resultUrl) {
+                                               canRun = false;
+                                               break;
+                                           }
+                                       }
+                                   }
 
-                                  if (canRun) {
-                                      statusObj.status = 'running';
-                                      let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
-                                      updateHistory(statusObj.historyId, { prompt: `${loopLabel}[子任务 ${task.id}] 正在生成...`, status: 'generating' });
-                                      runSubTask(task, statusObj).then(() => { checkAndRun(); });
-                                  }
-                              }
-                          }
-                          // Sequence finished
-                          if (allFinished && !loopMode) { 
-                              showToast("超级任务全部完成！"); 
-                          }
-                      };
+                                   if (canRun) {
+                                       statusObj.status = 'running';
+                                       let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
+                                       updateHistory(statusObj.historyId, { prompt: `${loopLabel}[子任务 ${task.id}] 正在生成...`, status: 'generating' });
+                                       runSubTask(task, statusObj).then(() => { checkAndRun(); });
+                                   }
+                               }
+                           }
+                           // Sequence finished
+                           if (allFinished && !loopMode) { 
+                               showToast("超级任务全部完成！"); 
+                           }
+                       };
 
-                      const runSubTask = async (task, statusObj) => {
-                          try {
-                              const urls = [];
-                              const previewUrls = []; // Separate array to store local previews for better aspect ratio calculation
-                              let finalPrompt = task.prompt;
-                              const tagToIndexMap = {};
-                              const addUrlAndPreview = (url, preview) => { 
-                                  urls.push(url); 
-                                  previewUrls.push(preview || url); // Fallback to url if no preview available
-                                  return urls.length; 
-                              };
+                       const runSubTask = async (task, statusObj) => {
+                           try {
+                               const urls = [];
+                               const previewUrls = []; // Separate array to store local previews for better aspect ratio calculation
+                               let finalPrompt = task.prompt;
+                               const tagToIndexMap = {};
+                               const addUrlAndPreview = (url, preview) => { 
+                                   urls.push(url); 
+                                   previewUrls.push(preview || url); // Fallback to url if no preview available
+                                   return urls.length; 
+                               };
 
-                              // 2. Robust Logic: Extract tags, resolve URLs, push to ordered array, map to prompt
-                              const tagRegex = /\[(pic|result)(\d+)\]/g;
-                              const tagsInPrompt = [];
-                              let match;
-                              while ((match = tagRegex.exec(task.prompt)) !== null) {
-                                  if (!tagsInPrompt.includes(match[0])) {
-                                      tagsInPrompt.push(match[0]);
-                                  }
-                              }
-                              
-                              // Process tags
-                              for (const tag of tagsInPrompt) {
-                                  if (!tagToIndexMap[tag]) {
-                                      const type = tag.startsWith('[pic') ? 'pic' : 'result';
-                                      const id = parseInt(tag.match(/\d+/)[0]);
-                                      
-                                      let url = null;
-                                      let previewUrl = null;
+                               // 2. Robust Logic: Extract tags, resolve URLs, push to ordered array, map to prompt
+                               const tagRegex = /\[(pic|result)(\d+)\]/g;
+                               const tagsInPrompt = [];
+                               let match;
+                               while ((match = tagRegex.exec(task.prompt)) !== null) {
+                                   if (!tagsInPrompt.includes(match[0])) {
+                                       tagsInPrompt.push(match[0]);
+                                   }
+                               }
+                               
+                               // Process tags
+                               for (const tag of tagsInPrompt) {
+                                   if (!tagToIndexMap[tag]) {
+                                       const type = tag.startsWith('[pic') ? 'pic' : 'result';
+                                       const id = parseInt(tag.match(/\d+/)[0]);
+                                       
+                                       let url = null;
+                                       let previewUrl = null;
 
-                                      if (type === 'pic') {
-                                          url = currentGlobalRefUrls[`pic${id}`];
-                                          previewUrl = currentGlobalRefPreviews[`pic${id}`];
-                                      } else if (type === 'result') {
-                                          url = taskStatusMap[id]?.resultUrl;
-                                          previewUrl = url; 
-                                      }
+                                       if (type === 'pic') {
+                                           url = currentGlobalRefUrls[`pic${id}`];
+                                           previewUrl = currentGlobalRefPreviews[`pic${id}`];
+                                       } else if (type === 'result') {
+                                           url = taskStatusMap[id]?.resultUrl;
+                                           previewUrl = url; 
+                                       }
 
-                                      if (url) {
-                                          const idx = addUrlAndPreview(url, previewUrl);
-                                          tagToIndexMap[tag] = idx; // [pic1] -> 1 (means 图1)
-                                      }
-                                  }
-                              }
+                                       if (url) {
+                                           const idx = addUrlAndPreview(url, previewUrl);
+                                           tagToIndexMap[tag] = idx; // [pic1] -> 1 (means 图1)
+                                       }
+                                   }
+                               }
 
-                              // Replace tags in prompt with "[picN]"
-                              finalPrompt = finalPrompt.replace(tagRegex, (m) => {
-                                  const idx = tagToIndexMap[m];
-                                  return idx ? `[pic${idx}]` : m;
-                              });
+                               // Replace tags in prompt with "[picN]"
+                               finalPrompt = finalPrompt.replace(tagRegex, (m) => {
+                                   const idx = tagToIndexMap[m];
+                                   return idx ? `[pic${idx}]` : m;
+                               });
 
-                              // Append local refs (if any) - mapped to next available indices
-                              for (const localRef of task.localRefs) {
-                                  const url = await uploadImageToQiniu(localRef.file, config);
-                                  addUrlAndPreview(url, localRef.preview);
-                              }
+                               // Append local refs (if any) - mapped to next available indices
+                               // Strict sequential upload for subtask local refs
+                               for (const localRef of task.localRefs) {
+                                   const url = await uploadImageToQiniu(localRef.file, config);
+                                   addUrlAndPreview(url, localRef.preview);
+                               }
 
-                              // 3. FIX: Safe aspect ratio calculation using LOCAL PREVIEW if available
-                              let aspectRatio = "1:1";
-                              if (previewUrls.length > 0) {
-                                  aspectRatio = await safeGetAspectRatio(previewUrls[0]);
-                              }
+                               // 3. FIX: Safe aspect ratio calculation using LOCAL PREVIEW if available
+                               let aspectRatio = "1:1";
+                               if (previewUrls.length > 0) {
+                                   aspectRatio = await safeGetAspectRatio(previewUrls[0]);
+                               }
 
-                              // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
-                              // This ensures "Rerun" has the correct data even if initial submission fails
-                              updateHistory(statusObj.historyId, { 
-                                  prompt: finalPrompt, 
-                                  extraData: { refs: urls }, 
-                                  settings: settings 
-                              });
+                               // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
+                               // This ensures "Rerun" has the correct data even if initial submission fails
+                               updateHistory(statusObj.historyId, { 
+                                   prompt: finalPrompt, 
+                                   extraData: { refs: urls }, 
+                                   settings: settings 
+                               });
 
-                              const { url, taskId } = await runTaskWithRetry(
-                                  () => submitDrawTask(finalPrompt, aspectRatio, settings.size, urls, config),
-                                  (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
-                                  10,
-                                  (attempt) => updateHistory(statusObj.historyId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
-                              );
-                              
-                              const isMock = taskId.toString().startsWith("mock-");
-                              statusObj.resultUrl = url;
-                              statusObj.status = 'success';
-                              updateHistory(statusObj.historyId, { url, status: 'success', isMock, prompt: finalPrompt });
+                               const { url, taskId } = await runTaskWithRetry(
+                                   () => submitDrawTask(finalPrompt, aspectRatio, settings.size, urls, config),
+                                   (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
+                                   10,
+                                   (attempt) => updateHistory(statusObj.historyId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                               );
+                               
+                               const isMock = taskId.toString().startsWith("mock-");
+                               statusObj.resultUrl = url;
+                               statusObj.status = 'success';
+                               updateHistory(statusObj.historyId, { url, status: 'success', isMock, prompt: finalPrompt });
 
-                          } catch (e) {
-                              console.error(e);
-                              statusObj.status = 'failed';
-                              updateHistory(statusObj.historyId, { status: 'failed', prompt: `失败: ${e.message}` });
-                          }
-                      };
-                      
-                      await checkAndRun(); // Start the sequence
+                           } catch (e) {
+                               console.error(e);
+                               statusObj.status = 'failed';
+                               updateHistory(statusObj.historyId, { status: 'failed', prompt: `失败: ${e.message}` });
+                           }
+                       };
+                       
+                       await checkAndRun(); // Start the sequence
                  };
 
                  (async () => {
-                      try {
-                        const globalRefUrls = {};
-                        const globalRefPreviews = {}; 
+                       try {
+                         const globalRefUrls = {};
+                         const globalRefPreviews = {}; 
 
-                        // 1. Force upload all global refs first (Base set)
-                        for (const ref of globalRefs) {
-                            const url = await uploadImageToQiniu(ref.file, config);
-                            if (url.startsWith('blob:')) alert(`警告: pic${ref.id} 上传失败，使用Blob URL。`);
-                            globalRefUrls[`pic${ref.id}`] = url;
-                            globalRefPreviews[`pic${ref.id}`] = ref.preview;
-                        }
+                         // 1. Force upload all global refs first (Base set)
+                         // STRICT SEQUENTIAL UPLOAD
+                         for (const ref of globalRefs) {
+                             const url = await uploadImageToQiniu(ref.file, config);
+                             if (url.startsWith('blob:')) alert(`警告: pic${ref.id} 上传失败，使用Blob URL。`);
+                             globalRefUrls[`pic${ref.id}`] = url;
+                             globalRefPreviews[`pic${ref.id}`] = ref.preview;
+                         }
 
-                        // RELEASE BUTTON HERE: After uploads and setup are done, release the button.
-                        setIsProcessing(false); 
-                        showToast("超级任务后台运行中...");
+                         // RELEASE BUTTON HERE: After uploads and setup are done, release the button.
+                         setIsProcessing(false); 
+                         showToast("超级任务后台运行中...");
 
-                        if (loopMode) {
-                            for (let i = 0; i < batchImages.length; i++) {
-                                // Upload current batch image
-                                const batchImgUrl = await uploadImageToQiniu(batchImages[i].file, config);
-                                
-                                // Create modified context
-                                const modifiedUrls = { ...globalRefUrls, [`pic${targetRefId}`]: batchImgUrl };
-                                const modifiedPreviews = { ...globalRefPreviews, [`pic${targetRefId}`]: batchImages[i].preview };
-                                
-                                // Run sequence detached (or await if sequential execution is desired)
-                                // We await here to prevent overwhelming the server
-                                await runSequence(modifiedUrls, modifiedPreviews, i);
-                            }
-                            showToast("循环任务全部完成");
-                        } else {
-                            await runSequence(globalRefUrls, globalRefPreviews);
-                        }
-                        
-                      } catch (e) {
-                          console.error(e);
-                          setIsProcessing(false);
-                          showToast("任务启动失败: " + e.message, "error");
-                      }
+                         if (loopMode) {
+                             // STRICT SEQUENTIAL LOOP EXECUTION
+                             for (let i = 0; i < batchImages.length; i++) {
+                                 // Upload current batch image
+                                 const batchImgUrl = await uploadImageToQiniu(batchImages[i].file, config);
+                                 
+                                 // Create modified context
+                                 const modifiedUrls = { ...globalRefUrls, [`pic${targetRefId}`]: batchImgUrl };
+                                 const modifiedPreviews = { ...globalRefPreviews, [`pic${targetRefId}`]: batchImages[i].preview };
+                                 
+                                 // Run sequence detached (or await if sequential execution is desired)
+                                 // We await here to prevent overwhelming the server
+                                 await runSequence(modifiedUrls, modifiedPreviews, i);
+                             }
+                             showToast("循环任务全部完成");
+                         } else {
+                             await runSequence(globalRefUrls, globalRefPreviews);
+                         }
+                         
+                       } catch (e) {
+                           console.error(e);
+                           setIsProcessing(false);
+                           showToast("任务启动失败: " + e.message, "error");
+                       }
                  })();
             };
 
@@ -1270,7 +1273,13 @@
                 const tempId = Date.now();
                 
                 try {
-                    const uploadedUrls = await Promise.all(refs.map(r => r.file ? uploadImageToQiniu(r.file, config) : Promise.resolve(r.url || r.preview)));
+                    // STRICT SEQUENTIAL UPLOAD
+                    const uploadedUrls = [];
+                    for (const r of refs) {
+                        const url = r.file ? await uploadImageToQiniu(r.file, config) : (r.url || r.preview);
+                        uploadedUrls.push(url);
+                    }
+
                     let finalRatio = settings.ratio;
                     if (settings.ratio === "PIC") finalRatio = customPicRatio || "1:1";
                     
@@ -1432,18 +1441,23 @@
                             const groupRefs = [currentBaseImgUrl];
                             let refCounter = 2; // 修复：参考图1是底图，所以新增的参考图从2开始计数
                             
-                            const finalGroupPoints = await Promise.all(group.map(async (p) => {
+                            // *** CRITICAL FIX: STRICT SEQUENTIAL PROCESSING ***
+                            // Instead of Promise.all(map), we use for-of loop to ensure uploads are linear
+                            // and pushes to groupRefs match the refCounter increment order.
+                            const finalGroupPoints = [];
+                            
+                            for (const p of group) {
                                 let finalPrompt = p.generatedPrompt;
                                 let refUrl = null;
 
                                 if ((p.mode === 'add' || p.mode === 'replace') && p.refImg) {
                                     refUrl = await uploadImageToQiniu(p.refImg, config);
                                     groupRefs.push(refUrl);
-                                    // Replace PLACEHOLDER with counter
+                                    // Replace PLACEHOLDER with counter sequentially
                                     finalPrompt = finalPrompt.replace("PLACEHOLDER", refCounter++);
                                 }
-                                return { ...p, generatedPrompt: finalPrompt, refImg: refUrl };
-                            }));
+                                finalGroupPoints.push({ ...p, generatedPrompt: finalPrompt, refImg: refUrl });
+                            }
 
                             // IMPORTANT FIX: Save refs in history so rerun works
                             updateHistory(tempId, {
