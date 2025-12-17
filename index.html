@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>K-painter PRO</title>
+    <title>K-painter PRO v2</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React & ReactDOM -->
@@ -19,12 +17,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 25px 0 0 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; box-sizing: border-box; }
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
         #root { height: 100%; width: 100%; }
         .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
-        .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; }
+        .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; cursor: pointer; }
         .cartoon-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #000; }
-        .cartoon-btn:disabled { background-color: #E5E7EB; color: #9CA3AF; box-shadow: none; transform: none; }
+        .cartoon-btn:disabled { background-color: #E5E7EB; color: #9CA3AF; box-shadow: none; transform: none; cursor: not-allowed; }
         .cartoon-btn.secondary { background-color: #87CEEB; }
         .cartoon-btn.danger { background-color: #FF6B6B; }
         .option-btn:active { transform: scale(0.98); }
@@ -93,6 +91,20 @@
         .toggle-checkbox:checked + .toggle-label {
             background-color: #68D391;
         }
+        
+        /* Preformatted text for params */
+        .params-pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            font-size: 0.75rem;
+            background: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            max-height: 300px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -131,10 +143,11 @@
             ExternalLink: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>),
             Check: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
             CheckSquare: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>),
-            Languages: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>)
+            Languages: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>),
+            Info: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>)
         };
         
-        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink, Check, CheckSquare, Languages } = Icons;
+        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink, Check, CheckSquare, Languages, Info } = Icons;
 
         // ================= Config =================
         const DEFAULT_CONFIG = {
@@ -256,11 +269,10 @@
             }
         };
 
-        // New helper for Text Translation using same endpoint structure
         const translateText = async (text, config) => {
             if (!config.enableTranslate || !text) return text;
             try {
-                const response = await fetch(config.visionUrl, { // Reusing vision URL as requested
+                const response = await fetch(config.visionUrl, { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
                     body: JSON.stringify({ 
@@ -274,7 +286,6 @@
                 const data = await response.json();
                 if (data.error) throw new Error(data.error.message);
                 let translated = data.choices[0].message.content.trim();
-                // Clean up potential think tags
                 translated = translated.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
                 console.log(`Translated: "${text}" -> "${translated}"`);
                 return translated;
@@ -320,7 +331,7 @@
             }
             return new Promise((resolve, reject) => {
                 const startTime = Date.now();
-                const timeoutLimit = 500000; // 500s timeout as requested
+                const timeoutLimit = 500000; 
                 let errorCount = 0;
 
                 const interval = setInterval(async () => {
@@ -341,7 +352,7 @@
                         }
 
                         const res = await response.json();
-                        errorCount = 0; // Reset error count on success
+                        errorCount = 0; 
 
                         if (res.code === 0) {
                             const status = res.data.status;
@@ -353,8 +364,8 @@
                     } catch (e) { 
                         console.error("Polling error", e);
                         errorCount++;
-                        if (errorCount > 5) { // 5 consecutive failures
-                            clearInterval(interval);
+                        if (errorCount > 5) { 
+                            clearInterval(interval); 
                             reject(new Error("网络连接失败或跨域限制 (CORS)"));
                         }
                     }
@@ -362,7 +373,6 @@
             });
         };
 
-        // Improved runTaskWithRetry to handle Submit failures AND Polling failures including timeout
         const runTaskWithRetry = async (submitFn, pollFn, maxRetries = 10, onRetry) => {
             let attempt = 0;
             while (attempt < maxRetries) {
@@ -375,14 +385,12 @@
                     console.warn(`Task failed, retrying (${attempt}/${maxRetries}):`, e);
                     if (onRetry) onRetry(attempt, e.message);
                     
-                    // Stop if it's a specific user error or something unrecoverable, but here we assume mostly transient
                     if (attempt >= maxRetries) throw e; 
                     await new Promise(r => setTimeout(r, 2000)); 
                 }
             }
         };
 
-        // Utility to convert file/blob to base64
         const blobToBase64 = (blob) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -392,7 +400,6 @@
             });
         };
 
-        // Utility to convert Base64 dataURL to File object
         const dataURLtoFile = (dataurl, filename) => {
             let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
                 bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
@@ -415,7 +422,6 @@
             );
         };
 
-        // New Input Modal Component for replacing window.prompt
         const InputModal = ({ isOpen, title, defaultValue, onConfirm, onCancel }) => {
             const [value, setValue] = useState(defaultValue || '');
             useEffect(() => { if (isOpen) setValue(defaultValue || ''); }, [isOpen, defaultValue]);
@@ -441,8 +447,66 @@
                 </div>
             );
         };
+        
+        // Params Modal
+        const ParamsModal = ({ isOpen, onClose, task }) => {
+            if (!isOpen || !task) return null;
+            
+            const params = {
+                prompt: task.prompt,
+                model: task.settings?.model || "nano-banana-pro",
+                aspect_ratio: task.settings?.ratio || "N/A",
+                image_size: task.settings?.size || "N/A",
+                reference_images: task.extraData?.refs || []
+            };
 
-        // Updated PromptManager with storageKey
+            return (
+                <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                            <h3 className="text-lg font-black">任务参数详情</h3>
+                            <button onClick={onClose}><X size={20} /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto no-scrollbar">
+                            <div className="space-y-2">
+                                <div>
+                                    <div className="text-xs font-bold text-gray-500">提示词</div>
+                                    <div className="text-xs bg-gray-100 p-2 rounded border border-gray-200">{params.prompt}</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <div className="text-xs font-bold text-gray-500">比例</div>
+                                        <div className="text-xs font-mono">{params.aspect_ratio}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs font-bold text-gray-500">尺寸</div>
+                                        <div className="text-xs font-mono">{params.image_size}</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-gray-500">参考图 ({params.reference_images.length})</div>
+                                    {params.reference_images.length > 0 ? (
+                                        <div className="flex gap-1 overflow-x-auto py-1">
+                                            {params.reference_images.map((url, i) => (
+                                                <a key={i} href={url} target="_blank" className="block w-10 h-10 border border-black rounded overflow-hidden flex-shrink-0">
+                                                    <img src={url} className="w-full h-full object-cover" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : <div className="text-xs text-gray-400">无</div>}
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-gray-500">完整 JSON</div>
+                                    <pre className="params-pre">{JSON.stringify(params, null, 2)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="cartoon-btn w-full py-2 text-sm">关闭</button>
+                    </div>
+                </div>
+            );
+        };
+
         const PromptManager = ({ currentPrompt, setPrompt, showToast, storageKey = 'kpainter_prompts' }) => {
             const [savedPrompts, setSavedPrompts] = useState([]);
             const [showListModal, setShowListModal] = useState(false);
@@ -458,7 +522,7 @@
                     }
                     setSavedPrompts(parsed);
                 } else {
-                    setSavedPrompts([]); // Clear if empty key
+                    setSavedPrompts([]); 
                 }
             }, [storageKey]);
 
@@ -512,7 +576,6 @@
                     <button onClick={openSaveModal} className="cartoon-btn secondary flex-1 py-2 text-xs flex items-center justify-center gap-2 bg-yellow-200"><Save size={16}/> 保存当前提示词</button>
                     <button onClick={() => setShowListModal(true)} className="cartoon-btn flex-1 py-2 text-xs flex items-center justify-center gap-2 bg-white"><List size={16}/> 我的提示词本 ({savedPrompts.length})</button>
                     
-                    {/* List Modal */}
                     {showListModal && (
                         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
                             <div className="cartoon-box bg-white w-full max-w-sm p-4 flex flex-col max-h-[70vh] animate-bounce-in">
@@ -536,7 +599,6 @@
                         </div>
                     )}
 
-                    {/* Input Modal */}
                     <InputModal 
                         isOpen={inputModal.show} 
                         title={inputModal.title} 
@@ -614,7 +676,7 @@
         }
         const TabBar = ({ activeTab, setTab }) => {
             const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
-            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-0 flex justify-around items-end z-50 h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
         };
 
         // --- SuperTaskMode ---
@@ -908,11 +970,11 @@
                                const previewUrls = []; // Separate array to store local previews for better aspect ratio calculation
                                let finalPrompt = task.prompt;
                                const tagToIndexMap = {};
-                               let firstRefRatio = null; // 记录第一张参考图的比例
+                               let firstRefRatio = null; 
 
                                const addUrlAndPreview = (url, preview) => { 
                                    urls.push(url); 
-                                   previewUrls.push(preview || url); // Fallback to url if no preview available
+                                   previewUrls.push(preview || url); 
                                    return urls.length; 
                                };
 
@@ -969,34 +1031,55 @@
                                    addUrlAndPreview(url, localRef.preview);
                                }
 
-                               // 3. FIX: Safe aspect ratio calculation
+                               // 3. FIX: Safe aspect ratio calculation & Reversal Logic
                                let aspectRatio = "1:1";
                                
-                               if (firstRefRatio) {
-                                   // 优先使用继承的比例
-                                   aspectRatio = firstRefRatio;
-                               } else if (previewUrls.length > 0) {
-                                   // 否则尝试从预览图获取（适用于 pic 或本地上传）
+                               // User Requirement: "Generate AR consistent with the last reference image" (in the submitted sequence).
+                               // The submitted sequence will be reversed.
+                               // Original: [pic1 (base), pic2, pic3]
+                               // Reversed: [pic3, pic2, pic1 (base)]
+                               // Last image in reversed is pic1 (base).
+                               // pic1 is at index 0 of original 'previewUrls'.
+                               if (previewUrls.length > 0) {
                                    aspectRatio = await safeGetAspectRatio(previewUrls[0]);
+                               } else if (firstRefRatio) {
+                                   aspectRatio = firstRefRatio;
                                }
 
-                               // 保存计算出的比例，供后续依赖此任务的子任务使用
+                               // Save calculated ratio for downstream tasks
                                statusObj.generatedRatio = aspectRatio;
+
+                               // Prompt Remapping: Invert [picN] indices because we reverse the array
+                               const totalRefs = urls.length;
+                               if (totalRefs > 0) {
+                                   finalPrompt = finalPrompt.replace(/\[pic(\d+)\]/g, (match, num) => {
+                                       const n = parseInt(num);
+                                       if (n > 0 && n <= totalRefs) {
+                                           const newN = totalRefs - n + 1;
+                                           return `[pic${newN}]`;
+                                       }
+                                       return match;
+                                   });
+                               }
 
                                // Translate Prompt if enabled
                                finalPrompt = await translateText(finalPrompt, config);
 
+                               // REVERSE URLs order for submission as requested (MOVED UP)
+                               const finalUrlsForSubmission = [...urls].reverse();
+
                                // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
+                               // We save the REVERSED urls to history so that Rerun/Copy/View Params show the correct order that matches the reversed prompt
                                // Also save the calculated ratio to settings so Rerun/Copy works correctly
                                const currentTaskSettings = { ...settings, ratio: aspectRatio };
                                updateHistory(statusObj.historyId, { 
                                    prompt: finalPrompt, 
-                                   extraData: { refs: urls }, 
+                                   extraData: { refs: finalUrlsForSubmission }, // Save REVERSED urls
                                    settings: currentTaskSettings 
                                });
-
+                               
                                const { url, taskId } = await runTaskWithRetry(
-                                   () => submitDrawTask(finalPrompt, aspectRatio, settings.size, urls, config),
+                                   () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, config),
                                    (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
                                    10,
                                    (attempt) => updateHistory(statusObj.historyId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
@@ -1363,8 +1446,10 @@
                     let finalRatio = settings.ratio;
                     if (settings.ratio === "PIC") finalRatio = customPicRatio || "1:1";
                     
-                    // Store URLs for history
-                    addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: uploadedUrls }, settings });
+                    // IMPORTANT FIX: Save the EXPLICIT ratio into history settings so Rerun/Copy works
+                    const historySettings = { ...settings, ratio: finalRatio };
+
+                    addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: uploadedUrls }, settings: historySettings });
 
                     const finalPrompt = await translateText(prompt, config); // Translation Hook
                     if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
@@ -1607,6 +1692,7 @@
             const [selectedImg, setSelectedImg] = useState(null); 
             const [actionItem, setActionItem] = useState(null); 
             const [showBatchMenu, setShowBatchMenu] = useState(false);
+            const [showParamsModal, setShowParamsModal] = useState(false);
             
             // Batch Selection State
             const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -1844,7 +1930,11 @@
                                     {actionItem.status === 'success' && (
                                         <button onClick={() => { onCopyLink(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><ExternalLink size={18} /> 跳转链接</button>
                                     )}
-                                    <button onClick={() => { onEdit(actionItem); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Edit size={18} /> 编辑任务</button>{actionItem.status === 'success' && (<><button onClick={() => { onSendToImg2Img(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><SendTo size={18} /> 传图生图</button><button onClick={() => { onSendToInpaint(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Layers size={18} /> 传重绘</button><button onClick={() => { setSelectedImg(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Eye size={18} /> 查看大图</button></>)}<button onClick={() => { onDelete(actionItem.id); setActionItem(null); }} className="cartoon-btn danger w-full py-3 flex items-center justify-center gap-2"><Trash2 size={18} /> 删除任务</button></div><button onClick={() => setActionItem(null)} className="w-full text-center text-sm underline mt-2">取消</button></div></div>)}</div>
+                                    <button onClick={() => { onEdit(actionItem); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Edit size={18} /> 编辑任务</button>
+                                    <button onClick={() => { setShowParamsModal(true); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-blue-200"><Info size={18} /> 查看参数</button>
+                                    {actionItem.status === 'success' && (<><button onClick={() => { onSendToImg2Img(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><SendTo size={18} /> 传图生图</button><button onClick={() => { onSendToInpaint(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Layers size={18} /> 传重绘</button><button onClick={() => { setSelectedImg(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Eye size={18} /> 查看大图</button></>)}<button onClick={() => { onDelete(actionItem.id); setActionItem(null); }} className="cartoon-btn danger w-full py-3 flex items-center justify-center gap-2"><Trash2 size={18} /> 删除任务</button></div><button onClick={() => setActionItem(null)} className="w-full text-center text-sm underline mt-2">取消</button></div></div>)}
+                    <ParamsModal isOpen={showParamsModal} onClose={() => setShowParamsModal(false)} task={actionItem} />
+                </div>
             );
         };
 
@@ -1954,6 +2044,7 @@
 
                     if (task.type === 'img2img') {
                         urls = task.extraData?.refs || [];
+                        // Logic Update: Prefer the saved ratio in settings which should be explicit now
                         aspectRatio = task.settings?.ratio === "PIC" ? "1:1" : task.settings?.ratio || "1:1"; 
                         imageSize = task.settings?.size || "2K";
                     } else if (task.type === 'txt2img') {
