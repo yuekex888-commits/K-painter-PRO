@@ -1604,6 +1604,7 @@
         const HistoryView = ({ history, onRerun, onEdit, onDelete, onSendToImg2Img, onSendToInpaint, onCopy, onBatchDownload, onCopyLink, showToast }) => {
             const [selectedImg, setSelectedImg] = useState(null); 
             const [actionItem, setActionItem] = useState(null); 
+            const [showBatchMenu, setShowBatchMenu] = useState(false);
             
             // Batch Selection State
             const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -1626,6 +1627,7 @@
             const exitSelectionMode = () => {
                 setIsSelectionMode(false);
                 setSelectedIds(new Set());
+                setShowBatchMenu(false);
             };
 
             const handleBatchOpen = () => {
@@ -1639,6 +1641,7 @@
                 
                 showToast(`正在打开 ${urls.length} 个链接，请允许弹窗...`);
                 urls.forEach(url => window.open(url, '_blank'));
+                setShowBatchMenu(false);
             };
 
             const handleBatchCopyUrls = () => {
@@ -1662,6 +1665,7 @@
                     showToast("复制失败", "error");
                 }
                 document.body.removeChild(textArea);
+                setShowBatchMenu(false);
             };
 
             const handleBatchDelete = () => {
@@ -1670,7 +1674,16 @@
                 
                 selectedIds.forEach(id => onDelete(id));
                 setSelectedIds(new Set());
+                setShowBatchMenu(false);
                 showToast("批量删除完成");
+            };
+
+            const handleBatchDownloadSelected = () => {
+                const selectedItems = history.filter(h => selectedIds.has(h.id));
+                if (selectedItems.length === 0) return showToast("未选中任何任务");
+                onBatchDownload(selectedItems);
+                setShowBatchMenu(false);
+                exitSelectionMode();
             };
 
             // Touch/Press Handlers
@@ -1779,21 +1792,37 @@
                         
                         {/* Floating Batch Action Bar */}
                         {isSelectionMode && selectedIds.size > 0 && (
-                            <div className="absolute bottom-4 left-4 right-4 bg-black text-white p-3 rounded-xl shadow-lg flex justify-around items-center animate-bounce-in z-20">
-                                <button onClick={handleBatchOpen} className="flex flex-col items-center gap-1 active:text-yellow-400">
-                                    <ExternalLink size={20}/>
-                                    <span className="text-[10px] font-bold">打开链接</span>
+                            <div className="absolute bottom-4 left-4 right-4 animate-bounce-in z-20">
+                                <button 
+                                    onClick={() => setShowBatchMenu(true)} 
+                                    className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 shadow-lg"
+                                >
+                                    <Settings size={20}/> 批量操作 ({selectedIds.size})
                                 </button>
-                                <div className="w-[1px] h-8 bg-gray-600"></div>
-                                <button onClick={handleBatchCopyUrls} className="flex flex-col items-center gap-1 active:text-yellow-400">
-                                    <Copy size={20}/>
-                                    <span className="text-[10px] font-bold">复制链接</span>
-                                </button>
-                                <div className="w-[1px] h-8 bg-gray-600"></div>
-                                <button onClick={handleBatchDelete} className="flex flex-col items-center gap-1 text-red-400 active:text-red-200">
-                                    <Trash2 size={20}/>
-                                    <span className="text-[10px] font-bold">删除</span>
-                                </button>
+                            </div>
+                        )}
+                        
+                        {/* Batch Menu Modal */}
+                        {showBatchMenu && (
+                            <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4" onClick={() => setShowBatchMenu(false)}>
+                                <div className="cartoon-box bg-white w-full max-w-xs p-4 space-y-3 animate-bounce-in" onClick={e => e.stopPropagation()}>
+                                    <h3 className="text-lg font-black border-b-2 border-black pb-2 text-center">批量操作 ({selectedIds.size})</h3>
+                                    <div className="space-y-2">
+                                        <button onClick={handleBatchDownloadSelected} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400">
+                                            <DownloadCloud size={18} /> 批量下载图片
+                                        </button>
+                                        <button onClick={handleBatchOpen} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-white">
+                                            <ExternalLink size={18} /> 批量打开链接
+                                        </button>
+                                        <button onClick={handleBatchCopyUrls} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-white">
+                                            <Copy size={18} /> 批量复制链接
+                                        </button>
+                                        <button onClick={handleBatchDelete} className="cartoon-btn danger w-full py-3 flex items-center justify-center gap-2">
+                                            <Trash2 size={18} /> 批量删除
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setShowBatchMenu(false)} className="w-full text-center text-sm underline mt-2">取消</button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1959,8 +1988,10 @@
             const handleSendToImg2Img = (url) => { setTransferData({ target: 'img2img', payload: url }); setTab('img2img'); };
             const handleSendToInpaint = (url) => { setTransferData({ target: 'inpaint', payload: url }); setTab('inpaint'); };
 
-            const handleBatchDownload = async () => {
-                const successes = history.filter(h => h.status === 'success' && h.url);
+            const handleBatchDownload = async (tasksToDownload = null) => {
+                const source = (Array.isArray(tasksToDownload) && tasksToDownload.length > 0) ? tasksToDownload : history;
+                const successes = source.filter(h => h.status === 'success' && h.url);
+                
                 if (successes.length === 0) return showToast("没有可下载的成功任务", "error");
                 
                 showToast(`开始批量下载 ${successes.length} 张图片，请允许弹窗...`);
