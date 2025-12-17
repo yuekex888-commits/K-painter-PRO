@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>K-painter PRO</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 25px 0 0 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; box-sizing: border-box; }
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
         #root { height: 100%; width: 100%; }
         .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
         .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; }
@@ -84,6 +82,15 @@
             -ms-user-select: none; /* Internet Explorer/Edge */
             user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
         }
+        
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #68D391;
+        }
     </style>
 </head>
 <body>
@@ -121,10 +128,11 @@
             Repeat2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m2 9 3-3 3 3"/><path d="M13 6H5v14"/><path d="m22 15-3 3-3-3"/><path d="M11 18h8V4"/></svg>),
             ExternalLink: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>),
             Check: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
-            CheckSquare: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>)
+            CheckSquare: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>),
+            Languages: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>)
         };
         
-        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink, Check, CheckSquare } = Icons;
+        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink, Check, CheckSquare, Languages } = Icons;
 
         // ================= Config =================
         const DEFAULT_CONFIG = {
@@ -141,7 +149,9 @@
             qiniuDomain: "t6e7a787u.hn-bkt.clouddn.com",
             qiniuUploadUrl: "https://upload-z2.qiniup.com",
             drawModel: "nano-banana-pro", // Configurable
-            visionModel: "gemini-3-pro" // Configurable
+            visionModel: "gemini-3-pro", // Configurable
+            enableTranslate: false,
+            translatePrompt: "You are a professional translator. Translate the following painting prompt into accurate English for Stable Diffusion. Direct output, no explanation."
         };
         
         // ================= Utils =================
@@ -241,6 +251,34 @@
                 return cleanVisionResponse(rawContent); 
             } catch (error) {
                 return "识别失败"; 
+            }
+        };
+
+        // New helper for Text Translation using same endpoint structure
+        const translateText = async (text, config) => {
+            if (!config.enableTranslate || !text) return text;
+            try {
+                const response = await fetch(config.visionUrl, { // Reusing vision URL as requested
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+                    body: JSON.stringify({ 
+                        model: config.visionModel || "gemini-3-pro", 
+                        messages: [
+                            { role: "system", content: config.translatePrompt },
+                            { role: "user", content: text }
+                        ] 
+                    })
+                });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                let translated = data.choices[0].message.content.trim();
+                // Clean up potential think tags
+                translated = translated.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                console.log(`Translated: "${text}" -> "${translated}"`);
+                return translated;
+            } catch (error) {
+                console.warn("Translation failed, using original text:", error);
+                return text;
             }
         };
 
@@ -544,6 +582,21 @@
                         <div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="text-lg font-black">全局设置</h3><button onClick={onClose}><X size={20} /></button></div>
                         <div className="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500">API Key</label><input type="text" value={tempConfig.apiKey} onChange={(e) => handleChange('apiKey', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                            
+                            {/* Translation Settings */}
+                            <div className="border-t-2 border-dashed border-gray-300 my-2 pt-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-xs font-black text-gray-700 flex items-center gap-1"><Languages size={14}/> 提示词自动翻译 (中文->英文)</h4>
+                                    <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                        <input type="checkbox" name="toggle" id="toggle" className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300" checked={tempConfig.enableTranslate} onChange={(e) => handleChange('enableTranslate', e.target.checked)}/>
+                                        <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer border border-gray-300 ${tempConfig.enableTranslate ? 'bg-green-400' : 'bg-gray-300'}`}></label>
+                                    </div>
+                                </div>
+                                {tempConfig.enableTranslate && (
+                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500">翻译系统提示词 (System Prompt)</label><textarea value={tempConfig.translatePrompt} onChange={(e) => handleChange('translatePrompt', e.target.value)} className="cartoon-input w-full text-xs py-1 h-16" /></div>
+                                )}
+                            </div>
+
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘分组数量</label><input type="number" min="1" max="10" value={tempConfig.inpaintBatchSize} onChange={(e) => handleChange('inpaintBatchSize', parseInt(e.target.value) || 3)} className="cartoon-input w-full text-sm py-1" /></div>
                             <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">提交接口 URL</label><input type="text" value={tempConfig.submitUrl} onChange={(e) => handleChange('submitUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">结果接口 URL</label><input type="text" value={tempConfig.resultUrl} onChange={(e) => handleChange('resultUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
                             <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">绘图模型 ID</label><input type="text" value={tempConfig.drawModel} onChange={(e) => handleChange('drawModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 ID</label><input type="text" value={tempConfig.visionModel} onChange={(e) => handleChange('visionModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
@@ -559,7 +612,7 @@
         }
         const TabBar = ({ activeTab, setTab }) => {
             const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
-            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-0 flex justify-around items-end z-50 h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
         };
 
         // --- SuperTaskMode ---
@@ -807,7 +860,7 @@
                                progress: 0, 
                                isMock: false, 
                                extraData: { refs: [] }, 
-                               settings: settings // PERSIST SETTINGS
+                               settings: settings // PERSIST SETTINGS (Default)
                            });
                            historyIds.push(histId);
                        });
@@ -928,12 +981,16 @@
                                // 保存计算出的比例，供后续依赖此任务的子任务使用
                                statusObj.generatedRatio = aspectRatio;
 
+                               // Translate Prompt if enabled
+                               finalPrompt = await translateText(finalPrompt, config);
+
                                // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
-                               // This ensures "Rerun" has the correct data even if initial submission fails
+                               // Also save the calculated ratio to settings so Rerun/Copy works correctly
+                               const currentTaskSettings = { ...settings, ratio: aspectRatio };
                                updateHistory(statusObj.historyId, { 
                                    prompt: finalPrompt, 
                                    extraData: { refs: urls }, 
-                                   settings: settings 
+                                   settings: currentTaskSettings 
                                });
 
                                const { url, taskId } = await runTaskWithRetry(
@@ -1184,11 +1241,14 @@
                 addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings, extraData: { refs: [] } });
                 
                 try {
+                    const finalPrompt = await translateText(prompt, config); // Translation Hook
+                    if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
+
                     const { url, taskId } = await runTaskWithRetry(
-                        () => submitDrawTask(prompt, settings.ratio, settings.size, [], config),
+                        () => submitDrawTask(finalPrompt, settings.ratio, settings.size, [], config),
                         (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                         10,
-                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                        (attempt) => updateHistory(tempId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
                     );
                     
                     const isMock = taskId.toString().startsWith("mock-");
@@ -1196,7 +1256,7 @@
                     setPrompt(""); 
                     showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
                     
-                    updateHistory(tempId, { url, status: 'success', isMock, prompt: prompt });
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: finalPrompt });
                 } catch (e) { 
                     setIsSubmitting(false); 
                     showToast(e.message, "error"); 
@@ -1304,11 +1364,14 @@
                     // Store URLs for history
                     addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: uploadedUrls }, settings });
 
+                    const finalPrompt = await translateText(prompt, config); // Translation Hook
+                    if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
+
                     const { url, taskId } = await runTaskWithRetry(
-                        () => submitDrawTask(prompt, finalRatio, settings.size, uploadedUrls, config),
+                        () => submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, config),
                         (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                         10,
-                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                        (attempt) => updateHistory(tempId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
                     );
                     
                     const isMock = taskId.toString().startsWith("mock-");
@@ -1316,7 +1379,7 @@
                     setPrompt(""); 
                     showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
 
-                    updateHistory(tempId, { url, status: 'success', isMock, prompt });
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: finalPrompt });
 
                 } catch (e) { 
                     setIsSubmitting(false); 
@@ -1460,8 +1523,6 @@
                             let refCounter = 2; // 修复：参考图1是底图，所以新增的参考图从2开始计数
                             
                             // *** CRITICAL FIX: STRICT SEQUENTIAL PROCESSING ***
-                            // Instead of Promise.all(map), we use for-of loop to ensure uploads are linear
-                            // and pushes to groupRefs match the refCounter increment order.
                             const finalGroupPoints = [];
                             
                             for (const p of group) {
@@ -1487,7 +1548,10 @@
                                 }
                             });
 
-                            const groupPrompts = finalGroupPoints.map(p => p.generatedPrompt).join("; ");
+                            let groupPrompts = finalGroupPoints.map(p => p.generatedPrompt).join("; ");
+                            
+                            // Translation Hook for Batch
+                            groupPrompts = await translateText(groupPrompts, config);
 
                             updateHistory(tempId, { prompt: groupPrompts, status: 'generating' });
 
