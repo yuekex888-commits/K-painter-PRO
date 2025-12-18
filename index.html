@@ -158,7 +158,7 @@
             visionPrompt: "告诉我图片[[坐标AAA]]按百分比算，横纵坐标（左和上为0，右和下为1），点击的东西是什么。直接回答物体名称，不要出现坐标数字，不要出现“位于图片...”等描述。",
             inpaintPrompt: "将[[答案A]][任务指令X]；", 
             inpaintBatchSize: 3, 
-            imageTagPrefix: "imagine", // Added Config for tag prefix
+            imageTagPrefix: "image", // Changed from "imagine" to "image" as requested
             qiniuAk: "aFSte7dyeDs9kWCDJ5IERTyWdBfMI-tvj_VSWi_Y",
             qiniuSk: "Eo7537HjfeJ7nz1oHOp34azBYylqKOzCWZz9wsuC",
             qiniuBucket: "ke5295421621",
@@ -663,7 +663,7 @@
                             </div>
 
                             {/* Added Image Tag Prefix Setting */}
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">参考图引用前缀 (默认: imagine)</label><input type="text" value={tempConfig.imageTagPrefix} onChange={(e) => handleChange('imageTagPrefix', e.target.value)} className="cartoon-input w-full text-sm py-1" placeholder="例如: imagine 或 pic" /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">参考图引用前缀 (默认: imagine)</label><input type="text" value={tempConfig.imageTagPrefix} onChange={(e) => handleChange('imageTagPrefix', e.target.value)} className="cartoon-input w-full text-sm py-1" placeholder="例如: image 或 pic" /></div>
 
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘分组数量</label><input type="number" min="1" max="10" value={tempConfig.inpaintBatchSize} onChange={(e) => handleChange('inpaintBatchSize', parseInt(e.target.value) || 3)} className="cartoon-input w-full text-sm py-1" /></div>
                             <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">提交接口 URL</label><input type="text" value={tempConfig.submitUrl} onChange={(e) => handleChange('submitUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">结果接口 URL</label><input type="text" value={tempConfig.resultUrl} onChange={(e) => handleChange('resultUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
@@ -977,7 +977,7 @@
                                let firstRefRatio = null; 
                                
                                // Retrieve Configured Tag Prefix
-                               const tagPrefix = config.imageTagPrefix || "imagine";
+                               const tagPrefix = config.imageTagPrefix || "image";
 
                                const addUrlAndPreview = (url, preview) => { 
                                    urls.push(url); 
@@ -1025,7 +1025,7 @@
                                    }
                                }
 
-                               // Replace tags in prompt with "[prefixN]" e.g. [imagine1]
+                               // Replace tags in prompt with "[prefixN]" e.g. [image1]
                                finalPrompt = finalPrompt.replace(tagRegex, (m) => {
                                    const idx = tagToIndexMap[m];
                                    return idx ? `[${tagPrefix}${idx}]` : m;
@@ -1094,7 +1094,7 @@
                                    () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, config),
                                    (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
                                    10,
-                                   (attempt) => updateHistory(statusObj.historyId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                                   (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
                                );
                                
                                const isMock = taskId.toString().startsWith("mock-");
@@ -1345,7 +1345,7 @@
                         () => submitDrawTask(finalPrompt, settings.ratio, settings.size, [], config),
                         (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                         10,
-                        (attempt) => updateHistory(tempId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                        (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
                     );
                     
                     const isMock = taskId.toString().startsWith("mock-");
@@ -1470,7 +1470,7 @@
                         () => submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, config),
                         (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                         10,
-                        (attempt) => updateHistory(tempId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                        (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
                     );
                     
                     const isMock = taskId.toString().startsWith("mock-");
@@ -1659,7 +1659,7 @@
                                     () => submitDrawTask(groupPrompts, baseRatio, processingSettings.size, groupRefs, config),
                                     (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                                     10,
-                                    (attempt) => updateHistory(tempId, { prompt: `${groupPrompts} (自动重试 ${attempt}/10)` })
+                                    (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
                                 );
                                 
                                 const isMock = taskId.toString().startsWith("mock-");
@@ -1700,7 +1700,7 @@
         };
 
         // ... HistoryView ...
-        const HistoryView = ({ history, onRerun, onEdit, onDelete, onSendToImg2Img, onSendToInpaint, onCopy, onBatchDownload, onCopyLink, showToast }) => {
+        const HistoryView = ({ history, onRerun, onEdit, onDelete, onSendToImg2Img, onSendToInpaint, onCopy, onBatchDownload, onCopyLink, onBatchRerun, showToast }) => {
             const [selectedImg, setSelectedImg] = useState(null); 
             const [actionItem, setActionItem] = useState(null); 
             const [showBatchMenu, setShowBatchMenu] = useState(false);
@@ -1782,6 +1782,14 @@
                 const selectedItems = history.filter(h => selectedIds.has(h.id));
                 if (selectedItems.length === 0) return showToast("未选中任何任务");
                 onBatchDownload(selectedItems);
+                setShowBatchMenu(false);
+                exitSelectionMode();
+            };
+
+            const handleBatchRerunSelected = () => {
+                const selectedItems = history.filter(h => selectedIds.has(h.id));
+                if (selectedItems.length === 0) return showToast("未选中任何任务");
+                onBatchRerun(selectedItems);
                 setShowBatchMenu(false);
                 exitSelectionMode();
             };
@@ -1890,9 +1898,9 @@
                             {history.length === 0 && <div className="text-center text-gray-500 mt-20 font-bold">暂无作品，长按任务可多选</div>}
                         </div>
                         
-                        {/* Floating Batch Action Bar */}
+                        {/* Floating Batch Action Bar - Z-Index Updated and Bottom Value Changed */}
                         {isSelectionMode && selectedIds.size > 0 && (
-                            <div className="absolute bottom-4 left-4 right-4 animate-bounce-in z-20">
+                            <div className="absolute bottom-28 left-4 right-4 animate-bounce-in z-40">
                                 <button 
                                     onClick={() => setShowBatchMenu(true)} 
                                     className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 shadow-lg"
@@ -1916,6 +1924,9 @@
                                         </button>
                                         <button onClick={handleBatchCopyUrls} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-white">
                                             <Copy size={18} /> 批量复制链接
+                                        </button>
+                                        <button onClick={handleBatchRerunSelected} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-blue-300">
+                                            <Repeat size={18} /> 批量重启
                                         </button>
                                         <button onClick={handleBatchDelete} className="cartoon-btn danger w-full py-3 flex items-center justify-center gap-2">
                                             <Trash2 size={18} /> 批量删除
@@ -2016,7 +2027,7 @@
                         () => submitDrawTask(prompt, ratio, size, urls, config),
                         (id) => pollTaskResult(id, (p) => updateHistory(task.id, { progress: p }), config),
                         10,
-                        (attempt) => updateHistory(task.id, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                        (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
                     );
 
                     const isMock = taskId.toString().startsWith("mock-");
@@ -2026,6 +2037,13 @@
                     showToast("重启失败: " + e.message, "error");
                     updateHistory(task.id, { status: 'failed', prompt: `失败: ${e.message}` });
                 }
+            };
+
+            const handleBatchRerun = (tasksToRerun) => {
+                if (!tasksToRerun || tasksToRerun.length === 0) return;
+                showToast(`批量重启 ${tasksToRerun.length} 个任务...`);
+                // Process sequentially or just fire off
+                tasksToRerun.forEach(task => handleRerun(task));
             };
 
             const handleCopy = async (task) => {
@@ -2077,7 +2095,7 @@
                         () => submitDrawTask(prompt, aspectRatio, imageSize, urls, config),
                         (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                         10,
-                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                        (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
                     );
 
                     const isMock = taskId.toString().startsWith("mock-");
@@ -2126,7 +2144,7 @@
                         {activeTab === 'img2img' && <Img2Img addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} />}
                         {activeTab === 'supertask' && <SuperTaskMode addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} state={superTaskState} setState={setSuperTaskState} />}
                         {activeTab === 'inpaint' && <InpaintMode addToHistory={addToHistory} updateHistory={updateHistory} historyItems={history} config={config} showToast={showToast} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} />}
-                        {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} showToast={showToast} />}
+                        {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} onBatchRerun={handleBatchRerun} showToast={showToast} />}
                     </main>
                     <TabBar activeTab={activeTab} setTab={setTab} />
                     <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} config={config} setConfig={setConfig} />
