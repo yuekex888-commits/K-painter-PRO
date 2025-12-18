@@ -1047,10 +1047,12 @@
                                // Reversed: [pic3, pic2, pic1 (base)]
                                // Last image in reversed is pic1 (base).
                                // pic1 is at index 0 of original 'previewUrls'.
-                               if (previewUrls.length > 0) {
-                                   aspectRatio = await safeGetAspectRatio(previewUrls[0]);
-                               } else if (firstRefRatio) {
+                               
+                               if (firstRefRatio) {
+                                   // 优先使用继承的比例 (针对 [resultN] 场景，避免网络加载失败导致丢失比例)
                                    aspectRatio = firstRefRatio;
+                               } else if (previewUrls.length > 0) {
+                                   aspectRatio = await safeGetAspectRatio(previewUrls[0]);
                                }
 
                                // Save calculated ratio for downstream tasks
