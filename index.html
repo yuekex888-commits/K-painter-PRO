@@ -158,7 +158,6 @@
             visionPrompt: "告诉我图片[[坐标AAA]]按百分比算，横纵坐标（左和上为0，右和下为1），点击的东西是什么。直接回答物体名称，不要出现坐标数字，不要出现“位于图片...”等描述。",
             inpaintPrompt: "将[[答案A]][任务指令X]；", 
             inpaintBatchSize: 3, 
-            imageTagPrefix: "imagine", // Added Config for tag prefix
             qiniuAk: "aFSte7dyeDs9kWCDJ5IERTyWdBfMI-tvj_VSWi_Y",
             qiniuSk: "Eo7537HjfeJ7nz1oHOp34azBYylqKOzCWZz9wsuC",
             qiniuBucket: "ke5295421621",
@@ -662,9 +661,6 @@
                                 )}
                             </div>
 
-                            {/* Added Image Tag Prefix Setting */}
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">参考图引用前缀 (默认: imagine)</label><input type="text" value={tempConfig.imageTagPrefix} onChange={(e) => handleChange('imageTagPrefix', e.target.value)} className="cartoon-input w-full text-sm py-1" placeholder="例如: imagine 或 pic" /></div>
-
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘分组数量</label><input type="number" min="1" max="10" value={tempConfig.inpaintBatchSize} onChange={(e) => handleChange('inpaintBatchSize', parseInt(e.target.value) || 3)} className="cartoon-input w-full text-sm py-1" /></div>
                             <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">提交接口 URL</label><input type="text" value={tempConfig.submitUrl} onChange={(e) => handleChange('submitUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">结果接口 URL</label><input type="text" value={tempConfig.resultUrl} onChange={(e) => handleChange('resultUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
                             <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">绘图模型 ID</label><input type="text" value={tempConfig.drawModel} onChange={(e) => handleChange('drawModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 ID</label><input type="text" value={tempConfig.visionModel} onChange={(e) => handleChange('visionModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
@@ -975,9 +971,6 @@
                                let finalPrompt = task.prompt;
                                const tagToIndexMap = {};
                                let firstRefRatio = null; 
-                               
-                               // Retrieve Configured Tag Prefix
-                               const tagPrefix = config.imageTagPrefix || "imagine";
 
                                const addUrlAndPreview = (url, preview) => { 
                                    urls.push(url); 
@@ -1025,10 +1018,10 @@
                                    }
                                }
 
-                               // Replace tags in prompt with "[prefixN]" e.g. [imagine1]
+                               // Replace tags in prompt with "[picN]"
                                finalPrompt = finalPrompt.replace(tagRegex, (m) => {
                                    const idx = tagToIndexMap[m];
-                                   return idx ? `[${tagPrefix}${idx}]` : m;
+                                   return idx ? `[pic${idx}]` : m;
                                });
 
                                // Append local refs (if any) - mapped to next available indices
@@ -1056,17 +1049,14 @@
                                // Save calculated ratio for downstream tasks
                                statusObj.generatedRatio = aspectRatio;
 
-                               // Prompt Remapping: Invert indices because we reverse the array
-                               // Now regex depends on configured prefix
+                               // Prompt Remapping: Invert [picN] indices because we reverse the array
                                const totalRefs = urls.length;
-                               const dynamicRegex = new RegExp(`\\[${tagPrefix}(\\d+)\\]`, 'g');
-                               
                                if (totalRefs > 0) {
-                                   finalPrompt = finalPrompt.replace(dynamicRegex, (match, num) => {
+                                   finalPrompt = finalPrompt.replace(/\[pic(\d+)\]/g, (match, num) => {
                                        const n = parseInt(num);
                                        if (n > 0 && n <= totalRefs) {
                                            const newN = totalRefs - n + 1;
-                                           return `[${tagPrefix}${newN}]`;
+                                           return `[pic${newN}]`;
                                        }
                                        return match;
                                    });
