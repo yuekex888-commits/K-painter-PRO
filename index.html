@@ -5,8 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>K-painter PRO v2</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -106,10 +104,6 @@
 
     .safe-area-bottom {
       padding-bottom: env(safe-area-inset-bottom);
-    }
-
-    .safe-area-top {
-      padding-top: max(25px, env(safe-area-inset-top));
     }
 
     @keyframes fadeIn {
@@ -428,9 +422,9 @@
       }
     };
 
-    const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config, baseImage = null) => {
+    const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config) => {
       try {
-        const payload = { model: config.drawModel || "nano-banana-pro", prompt, aspectRatio, imageSize, urls: imageUrls, base_image: baseImage, webHook: "-1", shutProgress: false };
+        const payload = { model: config.drawModel || "nano-banana-pro", prompt, aspectRatio, imageSize, urls: imageUrls, webHook: "-1", shutProgress: false };
         console.log("Submitting Payload:", payload);
 
         const response = await fetch(config.submitUrl, {
@@ -763,7 +757,7 @@
     };
 
     const Header = ({ onSettings }) => (
-      <div className="flex-none flex items-center justify-between px-4 pb-4 safe-area-top bg-white border-b-4 border-black z-20 relative">
+      <div className="flex-none flex items-center justify-between p-4 bg-white border-b-4 border-black z-20 relative">
         <div className="flex items-center gap-2"><div className="w-10 h-10 bg-yellow-400 rounded-lg border-2 border-black flex items-center justify-center"><Wand2 size={24} color="black" /></div><h1 className="text-2xl font-black tracking-tighter">K-painter PRO</h1></div>
         <div className="flex gap-2"><button onClick={onSettings} className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"><Settings size={20} /></button><div className="px-2 py-1 bg-green-400 border-2 border-black rounded-full text-xs font-bold flex items-center">ONLINE</div></div>
       </div>
@@ -812,7 +806,7 @@
     }
     const TabBar = ({ activeTab, setTab }) => {
       const tabs = [{ id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' },];
-      return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+      return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
     };
 
     // --- SuperTaskMode ---
@@ -1222,12 +1216,8 @@
                 settings: currentTaskSettings
               });
 
-              // Extract Base Image (Last added -> First in reversed list)
-              const baseImg = finalUrlsForSubmission.length > 0 ? finalUrlsForSubmission[0] : null;
-              const finalRefs = finalUrlsForSubmission.length > 0 ? finalUrlsForSubmission.slice(1) : [];
-
               const { url, taskId } = await runTaskWithRetry(
-                () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalRefs, config, baseImg),
+                () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, config),
                 (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
                 10,
                 (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -1294,7 +1284,7 @@
       };
 
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(100px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in">
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
           <div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-50 overflow-hidden relative">
             <div className="flex justify-between items-center mb-2 flex-shrink-0">
               <h2 className="text-xl font-black flex items-center gap-2"><Zap size={24} className="text-red-500 fill-current" /> 超级任务</h2>
@@ -1496,7 +1486,7 @@
           updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` });
         }
       };
-      return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(100px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
+      return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
     };
 
     // --- Img2Img ---
@@ -1602,12 +1592,8 @@
           const finalPrompt = await translateText(prompt, config); // Translation Hook
           if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
 
-          // Extract Base Image (Last image in list)
-          const baseImg = uploadedUrls.length > 0 ? uploadedUrls[uploadedUrls.length - 1] : null;
-          const finalRefs = uploadedUrls.length > 0 ? uploadedUrls.slice(0, -1) : [];
-
           const { url, taskId } = await runTaskWithRetry(
-            () => submitDrawTask(finalPrompt, finalRatio, settings.size, finalRefs, config, baseImg),
+            () => submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, config),
             (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
             10,
             (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -1627,7 +1613,7 @@
         }
       };
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(100px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <div className="flex gap-2 overflow-x-auto pb-2 mb-2 flex-shrink-0">{refs.map((ref, idx) => (<div key={idx} className="relative w-24 h-24 flex-shrink-0 border-2 border-black rounded-lg overflow-hidden bg-white group"><img src={ref.preview} className="w-full h-full object-cover" /><button onClick={() => removeRef(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 border border-black shadow hover:scale-110 active:scale-90 transition-transform"><X size={12} /></button><div className="absolute bottom-0 right-0 bg-black text-white text-[10px] px-1">{idx + 1}</div></div>))}<label className="w-24 h-24 flex-shrink-0 border-2 border-dashed border-black rounded-lg flex flex-col items-center justify-center bg-white cursor-pointer active:bg-gray-200"><Plus size={24} /><span className="text-xs font-bold">添加</span><input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} /></label></div>
           <textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[100px]" placeholder="输入补充提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} />
           <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_img2img" />
@@ -1822,7 +1808,7 @@
       };
 
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(100px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({ ...settings, size: '2K' })} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({ ...settings, size: '4K' })} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({ ...settings, size: '2K' })} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({ ...settings, size: '4K' })} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
           {activePoint && (
             <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
               <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in">
@@ -1969,7 +1955,7 @@
       };
 
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(100px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in">
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
           <div className="cartoon-box flex-1 flex flex-col p-4 bg-purple-100 overflow-hidden">
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <h2 className="text-xl font-black flex items-center gap-2">
@@ -2040,7 +2026,7 @@
 
             {/* Floating Batch Action Bar - Z-Index Updated and Bottom Value Changed */}
             {isSelectionMode && selectedIds.size > 0 && (
-              <div className="absolute left-4 right-4 animate-bounce-in z-40" style={{ bottom: 'calc(9rem + env(safe-area-inset-bottom))' }}>
+              <div className="absolute bottom-28 left-4 right-4 animate-bounce-in z-40">
                 <button
                   onClick={() => setShowBatchMenu(true)}
                   className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 shadow-lg"
