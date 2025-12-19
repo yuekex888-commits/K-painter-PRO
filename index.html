@@ -428,9 +428,9 @@
       }
     };
 
-    const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config) => {
+    const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config, baseImage = null) => {
       try {
-        const payload = { model: config.drawModel || "nano-banana-pro", prompt, aspectRatio, imageSize, urls: imageUrls, webHook: "-1", shutProgress: false };
+        const payload = { model: config.drawModel || "nano-banana-pro", prompt, aspectRatio, imageSize, urls: imageUrls, base_image: baseImage, webHook: "-1", shutProgress: false };
         console.log("Submitting Payload:", payload);
 
         const response = await fetch(config.submitUrl, {
@@ -1222,8 +1222,12 @@
                 settings: currentTaskSettings
               });
 
+              // Extract Base Image (Last added -> First in reversed list)
+              const baseImg = finalUrlsForSubmission.length > 0 ? finalUrlsForSubmission[0] : null;
+              const finalRefs = finalUrlsForSubmission.length > 0 ? finalUrlsForSubmission.slice(1) : [];
+
               const { url, taskId } = await runTaskWithRetry(
-                () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, config),
+                () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalRefs, config, baseImg),
                 (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
                 10,
                 (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -1598,8 +1602,12 @@
           const finalPrompt = await translateText(prompt, config); // Translation Hook
           if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
 
+          // Extract Base Image (Last image in list)
+          const baseImg = uploadedUrls.length > 0 ? uploadedUrls[uploadedUrls.length - 1] : null;
+          const finalRefs = uploadedUrls.length > 0 ? uploadedUrls.slice(0, -1) : [];
+
           const { url, taskId } = await runTaskWithRetry(
-            () => submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, config),
+            () => submitDrawTask(finalPrompt, finalRatio, settings.size, finalRefs, config, baseImg),
             (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
             10,
             (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
