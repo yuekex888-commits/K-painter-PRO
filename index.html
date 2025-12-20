@@ -5,6 +5,14 @@
   <meta charset="UTF-8">
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- iOS PWA Capable -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="K-painter">
+  <!-- Full Screen -->
+  <meta name="mobile-web-app-capable" content="yes">
+
   <title>K-painter PRO v2</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -19,6 +27,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
+    :root {
+      --sat: env(safe-area-inset-top);
+      --sab: env(safe-area-inset-bottom);
+    }
+
     html,
     body {
       height: 100%;
@@ -29,6 +42,21 @@
       font-family: 'Fredoka', sans-serif;
       background-color: #f0f0f0;
       overscroll-behavior: none;
+      /* Prevent white bar at bottom on bounce */
+      position: fixed;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+    /* Dynamic Island Support */
+    .safe-area-top-spacer {
+      padding-top: max(25px, var(--sat));
+    }
+
+    .safe-area-bottom {
+      padding-bottom: var(--sab);
     }
 
     #root {
@@ -284,16 +312,23 @@
       visionPrompt: "告诉我图片[[坐标AAA]]按百分比算，横纵坐标（左和上为0，右和下为1），点击的东西是什么。直接回答物体名称，不要出现坐标数字，不要出现“位于图片...”等描述。",
       inpaintPrompt: "将[[答案A]][任务指令X]；",
       inpaintBatchSize: 3,
-      imageTagPrefix: "image", // Changed from "imagine" to "image" as requested
+      imageTagPrefix: "image",
       qiniuAk: "aFSte7dyeDs9kWCDJ5IERTyWdBfMI-tvj_VSWi_Y",
       qiniuSk: "Eo7537HjfeJ7nz1oHOp34azBYylqKOzCWZz9wsuC",
       qiniuBucket: "ke5295421621",
       qiniuDomain: "t6e7a787u.hn-bkt.clouddn.com",
       qiniuUploadUrl: "https://upload-z2.qiniup.com",
-      drawModel: "nano-banana-pro", // Configurable
-      visionModel: "gemini-3-pro", // Configurable
+      drawModel: "nano-banana-pro",
+      visionModel: "gemini-3-pro",
       enableTranslate: false,
-      translatePrompt: "You are a professional translator. Translate the following painting prompt into accurate English for Stable Diffusion. Direct output, no explanation."
+      translatePrompt: "You are a professional translator. Translate the following painting prompt into accurate English for Stable Diffusion. Direct output, no explanation.",
+
+      // Model 2 Config
+      activeModel: "model1", // model1 or model2
+      drawModel2_apiKey: "sk-lg2jp51ZsO7l2NWRuCapZfpDbnJZmUuQ105BCkYCnuV0BaL1",
+      drawModel2_submitUrl: "https://newapi.pockgo.com/v1/chat/completions",
+      drawModel2_model_2k: "gemini-3-pro-image-preview-2k",
+      drawModel2_model_4k: "gemini-3-pro-image-preview-4k"
     };
 
     // ================= Utils =================
@@ -315,6 +350,16 @@
     }
 
     const uploadImageToQiniu = async (file, config) => {
+      // Model 2 Support: Return Base64 directly
+      if (config.activeModel === 'model2') {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
       return new Promise((resolve, reject) => {
         if (typeof file === 'string' && file.startsWith('http')) {
           resolve(file);
@@ -422,9 +467,79 @@
       }
     };
 
-    const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config) => {
+    // Global cache for sync results (Model 2)
+    window._task_results_cache = window._task_results_cache || {};
+
+    const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config, baseImage = null) => {
       try {
-        const payload = { model: config.drawModel || "nano-banana-pro", prompt, aspectRatio, imageSize, urls: imageUrls, webHook: "-1", shutProgress: false };
+        // --- MODEL 2 Logic ---
+        if (config.activeModel === 'model2') {
+          const modelId = imageSize === '4K' ? (config.drawModel2_model_4k || "gemini-3-pro-image-preview-4k") : (config.drawModel2_model_2k || "gemini-3-pro-image-preview-2k");
+
+          // Append Aspect Ratio to prompt for Model 2
+          const promptWithRatio = `${prompt} --ar ${aspectRatio}`;
+          let content = [{ type: "text", text: promptWithRatio }];
+
+          // Add referenced images (Img2Img / Transfer)
+          if (Array.isArray(imageUrls)) {
+            imageUrls.forEach(url => {
+              content.push({ type: "image_url", image_url: { url: url } });
+            });
+          }
+
+          // Add base image if exists (Inpaint base)
+          if (baseImage && (baseImage.preview || baseImage.url)) {
+            content.push({ type: "image_url", image_url: { url: baseImage.preview || baseImage.url } });
+          }
+
+          // Simplify payload for text-only requests to avoid "Code Assist" routing on some proxies
+          let finalContent = content;
+          if (content.length === 1 && content[0].type === 'text') {
+            finalContent = content[0].text;
+          }
+
+          const payload = {
+            model: modelId,
+            messages: [{ role: "user", content: finalContent }]
+          };
+
+          console.log("Model 2 Payload:", payload);
+          const response = await fetch(config.drawModel2_submitUrl.trim(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.drawModel2_apiKey.trim()}` },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorMsg = errorText.substring(0, 300);
+            try {
+              const errJson = JSON.parse(errorText);
+              if (errJson.error && errJson.error.message) errorMsg = errJson.error.message;
+            } catch (e) { }
+            throw new Error(`Provider Error (${response.status}): ${errorMsg}`);
+          }
+
+          const data = await response.json();
+          const resultText = data.choices?.[0]?.message?.content || "";
+
+          // Try to extract URL if it's in markdown format or just text
+          const urlMatch = resultText.match(/https?:\/\/[^\s\)]+/);
+          const resultUrl = urlMatch ? urlMatch[0] : `https://placehold.co/1024x1024?text=${encodeURIComponent(resultText.substring(0, 20))}`;
+
+          const tempId = "direct-" + Date.now();
+          window._task_results_cache[tempId] = resultUrl;
+          return tempId;
+        }
+
+        // --- MODEL 1 Logic ---
+        let finalPrompt = prompt;
+        if (baseImage) {
+          const n = imageUrls.length + 1;
+          finalPrompt = `Edit Image ${n} ${prompt}`;
+        }
+
+        const payload = { model: config.drawModel || "nano-banana-pro", prompt: finalPrompt, aspectRatio, imageSize, urls: imageUrls, base_image: baseImage, webHook: "-1", shutProgress: false };
         console.log("Submitting Payload:", payload);
 
         const response = await fetch(config.submitUrl, {
@@ -449,7 +564,21 @@
       }
     };
 
+    const getEffectiveModel = (config, size) => {
+      if (config.activeModel === 'model2') {
+        return size === '4K' ? (config.drawModel2_model_4k || "gemini-3-pro-image-preview-4k") : (config.drawModel2_model_2k || "gemini-3-pro-image-preview-2k");
+      }
+      return config.drawModel || "nano-banana-pro";
+    };
+
     const pollTaskResult = async (taskId, onProgress, config) => {
+      // Model 2 Support
+      if (typeof taskId === 'string' && taskId.startsWith("direct-")) {
+        if (window._task_results_cache && window._task_results_cache[taskId]) {
+          if (onProgress) onProgress(100);
+          return window._task_results_cache[taskId];
+        }
+      }
       if (taskId.toString().startsWith("mock-")) {
         return new Promise((resolve) => {
           let p = 0;
@@ -543,8 +672,8 @@
       if (!show) return null;
       const bgColor = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-500' : 'bg-black');
       return (
-        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-6 py-2 rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] z-[200] animate-bounce-in font-bold flex items-center gap-2 border-2 border-white`}>
-          {type === 'success' && <div className="w-2 h-2 bg-white rounded-full"></div>} {message}
+        <div className={`fixed top-[max(1rem,var(--sat))] mt-2 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-6 py-2 rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] z-[200] animate-bounce-in font-bold flex items-center gap-2 border-2 border-white max-w-[90vw] text-center text-xs break-all`}>
+          {type === 'success' && <div className="w-2 h-2 bg-white rounded-full flex-shrink-0"></div>} {message}
         </div>
       );
     };
@@ -772,32 +901,50 @@
           <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in flex flex-col max-h-[80vh]">
             <div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="text-lg font-black">全局设置</h3><button onClick={onClose}><X size={20} /></button></div>
             <div className="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar">
-              <div className="space-y-1"><label className="text-xs font-bold text-gray-500">API Key</label><input type="text" value={tempConfig.apiKey} onChange={(e) => handleChange('apiKey', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
 
-              {/* Translation Settings */}
-              <div className="border-t-2 border-dashed border-gray-300 my-2 pt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-black text-gray-700 flex items-center gap-1"><Languages size={14} /> 提示词自动翻译 (中文->英文)</h4>
-                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                    <input type="checkbox" name="toggle" id="toggle" className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300" checked={tempConfig.enableTranslate} onChange={(e) => handleChange('enableTranslate', e.target.checked)} />
-                    <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer border border-gray-300 ${tempConfig.enableTranslate ? 'bg-green-400' : 'bg-gray-300'}`}></label>
-                  </div>
-                </div>
-                {tempConfig.enableTranslate && (
-                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">翻译系统提示词 (System Prompt)</label><textarea value={tempConfig.translatePrompt} onChange={(e) => handleChange('translatePrompt', e.target.value)} className="cartoon-input w-full text-xs py-1 h-16" /></div>
-                )}
+              {/* Model Select */}
+              <div className="flex gap-2 mb-2 p-1 bg-gray-100 rounded-lg">
+                <button onClick={() => handleChange('activeModel', 'model1')} className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${tempConfig.activeModel !== 'model2' ? 'bg-white shadow' : 'text-gray-500'}`}>绘图模型 1 (默认)</button>
+                <button onClick={() => handleChange('activeModel', 'model2')} className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${tempConfig.activeModel === 'model2' ? 'bg-white shadow' : 'text-gray-500'}`}>绘图模型 2 (OpenAI)</button>
               </div>
 
-              {/* Added Image Tag Prefix Setting */}
-              <div className="space-y-1"><label className="text-xs font-bold text-gray-500">参考图引用前缀 (默认: imagine)</label><input type="text" value={tempConfig.imageTagPrefix} onChange={(e) => handleChange('imageTagPrefix', e.target.value)} className="cartoon-input w-full text-sm py-1" placeholder="例如: image 或 pic" /></div>
+              {tempConfig.activeModel === 'model2' ? (
+                <div className="space-y-2 animate-fade-in">
+                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">API Key</label><input type="text" value={tempConfig.drawModel2_apiKey} onChange={(e) => handleChange('drawModel2_apiKey', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">Base URL</label><input type="text" value={tempConfig.drawModel2_submitUrl} onChange={(e) => handleChange('drawModel2_submitUrl', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">2K 模型 ID</label><input type="text" value={tempConfig.drawModel2_model_2k} onChange={(e) => handleChange('drawModel2_model_2k', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">4K 模型 ID</label><input type="text" value={tempConfig.drawModel2_model_4k} onChange={(e) => handleChange('drawModel2_model_4k', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                </div>
+              ) : (
+                <div className="space-y-2 animate-fade-in">
+                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">API Key</label><input type="text" value={tempConfig.apiKey} onChange={(e) => handleChange('apiKey', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                  <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">提交接口 URL</label><input type="text" value={tempConfig.submitUrl} onChange={(e) => handleChange('submitUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">结果接口 URL</label><input type="text" value={tempConfig.resultUrl} onChange={(e) => handleChange('resultUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
+                  <div className="space-y-1"><label className="text-xs font-bold text-gray-500">绘图模型 ID</label><input type="text" value={tempConfig.drawModel} onChange={(e) => handleChange('drawModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
+                  <div className="border-t-2 border-dashed border-gray-300 my-2 pt-2"><h4 className="text-xs font-black mb-2 text-gray-700">七牛云配置 (必填)</h4><div className="grid grid-cols-2 gap-2 mb-2"><input placeholder="Access Key" type="text" value={tempConfig.qiniuAk} onChange={(e) => handleChange('qiniuAk', e.target.value)} className="cartoon-input w-full text-xs py-1" /><input placeholder="Secret Key" type="password" value={tempConfig.qiniuSk} onChange={(e) => handleChange('qiniuSk', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="grid grid-cols-2 gap-2"><input placeholder="Bucket Name" type="text" value={tempConfig.qiniuBucket} onChange={(e) => handleChange('qiniuBucket', e.target.value)} className="cartoon-input w-full text-xs py-1" /><input placeholder="Domain" type="text" value={tempConfig.qiniuDomain} onChange={(e) => handleChange('qiniuDomain', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1 mt-2"><label className="text-xs font-bold text-gray-500">七牛云上传地址</label><input type="text" value={tempConfig.qiniuUploadUrl} onChange={(e) => handleChange('qiniuUploadUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
+                </div>
+              )}
 
-              <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘分组数量</label><input type="number" min="1" max="10" value={tempConfig.inpaintBatchSize} onChange={(e) => handleChange('inpaintBatchSize', parseInt(e.target.value) || 3)} className="cartoon-input w-full text-sm py-1" /></div>
-              <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">提交接口 URL</label><input type="text" value={tempConfig.submitUrl} onChange={(e) => handleChange('submitUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">结果接口 URL</label><input type="text" value={tempConfig.resultUrl} onChange={(e) => handleChange('resultUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
-              <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">绘图模型 ID</label><input type="text" value={tempConfig.drawModel} onChange={(e) => handleChange('drawModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 ID</label><input type="text" value={tempConfig.visionModel} onChange={(e) => handleChange('visionModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
-              <div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 URL</label><input type="text" value={tempConfig.visionUrl} onChange={(e) => handleChange('visionUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
-              <div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉识别提示词 P</label><textarea value={tempConfig.visionPrompt} onChange={(e) => handleChange('visionPrompt', e.target.value)} className="cartoon-input w-full text-xs py-1 h-16" /></div>
-              <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘提示词模板</label><input type="text" value={tempConfig.inpaintPrompt} onChange={(e) => handleChange('inpaintPrompt', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
-              <div className="border-t-2 border-dashed border-gray-300 my-2 pt-2"><h4 className="text-xs font-black mb-2 text-gray-700">七牛云配置</h4><div className="grid grid-cols-2 gap-2 mb-2"><input placeholder="Access Key" type="text" value={tempConfig.qiniuAk} onChange={(e) => handleChange('qiniuAk', e.target.value)} className="cartoon-input w-full text-xs py-1" /><input placeholder="Secret Key" type="password" value={tempConfig.qiniuSk} onChange={(e) => handleChange('qiniuSk', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="grid grid-cols-2 gap-2"><input placeholder="Bucket Name" type="text" value={tempConfig.qiniuBucket} onChange={(e) => handleChange('qiniuBucket', e.target.value)} className="cartoon-input w-full text-xs py-1" /><input placeholder="Domain" type="text" value={tempConfig.qiniuDomain} onChange={(e) => handleChange('qiniuDomain', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1 mt-2"><label className="text-xs font-bold text-gray-500">七牛云上传地址</label><input type="text" value={tempConfig.qiniuUploadUrl} onChange={(e) => handleChange('qiniuUploadUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
+              {/* Common Vision Settings */}
+              <div className="border-t-2 border-black my-2 pt-2">
+                <h4 className="text-xs font-black mb-2">通用设置</h4>
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 URL</label><input type="text" value={tempConfig.visionUrl} onChange={(e) => handleChange('visionUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 ID</label><input type="text" value={tempConfig.visionModel} onChange={(e) => handleChange('visionModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">参考图引用前缀</label><input type="text" value={tempConfig.imageTagPrefix} onChange={(e) => handleChange('imageTagPrefix', e.target.value)} className="cartoon-input w-full text-sm py-1" placeholder="例如: image 或 pic" /></div>
+
+                {/* Translation Settings */}
+                <div className="mt-2 pt-2 border-t border-dashed border-gray-300">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-black text-gray-700 flex items-center gap-1"><Languages size={14} /> 提示词自动翻译</h4>
+                    <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                      <input type="checkbox" name="toggle" id="toggle" className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300" checked={tempConfig.enableTranslate} onChange={(e) => handleChange('enableTranslate', e.target.checked)} />
+                      <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer border border-gray-300 ${tempConfig.enableTranslate ? 'bg-green-400' : 'bg-gray-300'}`}></label>
+                    </div>
+                  </div>
+                  {tempConfig.enableTranslate && (
+                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500">翻译系统提示词 (System Prompt)</label><textarea value={tempConfig.translatePrompt} onChange={(e) => handleChange('translatePrompt', e.target.value)} className="cartoon-input w-full text-xs py-1 h-16" /></div>
+                  )}
+                </div>
+              </div>
             </div>
             <button onClick={() => { setConfig(tempConfig); onClose(); }} className="cartoon-btn w-full py-3 mt-2 flex-shrink-0">保存配置</button>
           </div>
@@ -806,7 +953,21 @@
     }
     const TabBar = ({ activeTab, setTab }) => {
       const tabs = [{ id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' },];
-      return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+      return (
+        <div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex justify-around items-end z-50">
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all justify-center py-2 px-1 rounded-lg ${isActive ? 'bg-gray-100' : ''}`}>
+                <div className={`w-10 h-10 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}>
+                  <tab.icon size={20} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} />
+                </div>
+                <span className="text-[10px] font-bold">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      );
     };
 
     // --- SuperTaskMode ---
@@ -1209,7 +1370,11 @@
               // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
               // We save the REVERSED urls to history so that Rerun/Copy/View Params show the correct order that matches the reversed prompt
               // Also save the calculated ratio to settings so Rerun/Copy works correctly
-              const currentTaskSettings = { ...settings, ratio: aspectRatio };
+              const currentTaskSettings = {
+                ...settings,
+                ratio: aspectRatio,
+                model: getEffectiveModel(config, settings.size)
+              };
               updateHistory(statusObj.historyId, {
                 prompt: finalPrompt,
                 extraData: { refs: finalUrlsForSubmission }, // Save REVERSED urls
@@ -1442,26 +1607,29 @@
     }
 
     // --- Txt2Img ---
-    const Txt2Img = ({ addToHistory, updateHistory, config, showToast, editingTask, onTaskLoaded }) => {
-      const [prompt, setPrompt] = useState("");
-      const [settings, setSettings] = useState({ size: "2K", ratio: "1:1" });
+    const Txt2Img = ({ addToHistory, updateHistory, config, showToast, editingTask, onTaskLoaded, draft, updateDraft }) => {
+      const prompt = draft?.prompt || "";
+      const settings = draft?.settings || { size: "2K", ratio: "1:1" };
       const [isSubmitting, setIsSubmitting] = useState(false);
 
       useEffect(() => {
         if (editingTask && editingTask.type === 'txt2img') {
-          setPrompt(editingTask.prompt);
-          if (editingTask.settings) setSettings(editingTask.settings);
+          updateDraft({ prompt: editingTask.prompt, settings: editingTask.settings || { size: "2K", ratio: "1:1" } });
           onTaskLoaded();
         }
-      }, [editingTask, onTaskLoaded]);
+      }, [editingTask, onTaskLoaded, updateDraft]);
 
-      const handleReset = () => { setPrompt(""); setSettings({ size: "2K", ratio: "1:1" }); };
+      const handleReset = () => { updateDraft({ prompt: "", settings: { size: "2K", ratio: "1:1" } }); };
+
+      const setPrompt = (val) => updateDraft({ prompt: val });
+      const setSettings = (val) => updateDraft({ settings: val });
       const handleGenerate = async () => {
         if (!prompt) return showToast("请输入提示词！", "error");
         setIsSubmitting(true);
         const tempId = Date.now();
         // Store empty refs for consistency
-        addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings, extraData: { refs: [] } });
+        const historySettings = { ...settings, model: getEffectiveModel(config, settings.size) };
+        addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings: historySettings, extraData: { refs: [] } });
 
         try {
           const finalPrompt = await translateText(prompt, config); // Translation Hook
@@ -1476,7 +1644,7 @@
 
           const isMock = taskId.toString().startsWith("mock-");
           setIsSubmitting(false);
-          setPrompt("");
+          updateDraft({ prompt: "" });
           showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
 
           updateHistory(tempId, { url, status: 'success', isMock, prompt: finalPrompt });
@@ -1490,30 +1658,45 @@
     };
 
     // --- Img2Img ---
-    const Img2Img = ({ addToHistory, updateHistory, config, showToast, editingTask, onTaskLoaded, transferData, onConsumeTransfer }) => {
-      const [refs, setRefs] = useState([]);
-      const [prompt, setPrompt] = useState("");
-      const [settings, setSettings] = useState({ size: "2K", ratio: "1:1" });
+    const Img2Img = ({ addToHistory, updateHistory, config, showToast, editingTask, onTaskLoaded, transferData, onConsumeTransfer, draft, updateDraft }) => {
+      const refs = draft?.refs || [];
+      const prompt = draft?.prompt || "";
+      const settings = draft?.settings || { size: "2K", ratio: "1:1" };
+      const customPicRatio = draft?.customPicRatio || null;
       const [isSubmitting, setIsSubmitting] = useState(false);
-      const [customPicRatio, setCustomPicRatio] = useState(null);
+
+      const setRefs = (val) => updateDraft({ refs: typeof val === 'function' ? val(refs) : val });
+      const setPrompt = (val) => updateDraft({ prompt: val });
+      // Special handler for setSettings since it often uses functional updates in original code
+      const setSettings = (val) => updateDraft({ settings: typeof val === 'function' ? val(settings) : val });
+      const setCustomPicRatio = (val) => updateDraft({ customPicRatio: val });
 
       useEffect(() => {
         if (transferData && transferData.target === 'img2img') {
           const newRef = { preview: transferData.payload, file: null, url: transferData.payload };
+          // We need to access current refs, but since 'refs' is from props, we can use it directly?
+          // To be safe and follow the pattern, we read potentially stale props but here it's an effect.
+          // Better logic:
           if (refs.length === 0) {
             const img = new Image();
             img.onload = () => {
               const exactRatio = `${img.width}:${img.height}`;
               setCustomPicRatio(exactRatio);
-              setSettings(s => ({ ...s, ratio: "PIC" }));
+              updateDraft({
+                refs: [...refs, newRef],
+                customPicRatio: exactRatio,
+                settings: { ...settings, ratio: "PIC" }
+              });
               showToast(`已添加参考图，模式：PIC`);
             };
             img.src = transferData.payload;
+          } else {
+            setRefs([...refs, newRef]);
           }
-          setRefs(prev => [...prev, newRef]);
           onConsumeTransfer();
         }
-      }, [transferData, refs, onConsumeTransfer]);
+      }, [transferData, refs, settings, onConsumeTransfer, updateDraft]); // Added deps
+
 
       useEffect(() => {
         if (editingTask && editingTask.type === 'img2img') {
@@ -1566,7 +1749,7 @@
           return next;
         });
       };
-      const handleReset = () => { setPrompt(""); setRefs([]); setCustomPicRatio(null); setSettings({ size: "2K", ratio: "1:1" }); };
+      const handleReset = () => { updateDraft({ prompt: "", refs: [], customPicRatio: null, settings: { size: "2K", ratio: "1:1" } }); };
 
       const handleGenerate = async () => {
         if (refs.length === 0) return showToast("请上传参考图", "error");
@@ -1585,7 +1768,11 @@
           if (settings.ratio === "PIC") finalRatio = customPicRatio || "1:1";
 
           // IMPORTANT FIX: Save the EXPLICIT ratio into history settings so Rerun/Copy works
-          const historySettings = { ...settings, ratio: finalRatio };
+          const historySettings = {
+            ...settings,
+            ratio: finalRatio,
+            model: getEffectiveModel(config, settings.size)
+          };
 
           addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: uploadedUrls }, settings: historySettings });
 
@@ -1601,7 +1788,7 @@
 
           const isMock = taskId.toString().startsWith("mock-");
           setIsSubmitting(false);
-          setPrompt("");
+          updateDraft({ prompt: "" });
           showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
 
           updateHistory(tempId, { url, status: 'success', isMock, prompt: finalPrompt });
@@ -1622,11 +1809,16 @@
     };
 
     // --- InpaintMode ---
-    const InpaintMode = ({ addToHistory, updateHistory, historyItems, config, showToast, transferData, onConsumeTransfer, editingTask, onTaskLoaded }) => {
-      const [baseImage, setBaseImage] = useState(null);
-      const [points, setPoints] = useState([]);
-      const [activePoint, setActivePoint] = useState(null);
-      const [settings, setSettings] = useState({ size: "2K", ratio: "ORIGINAL" });
+    const InpaintMode = ({ addToHistory, updateHistory, historyItems, config, showToast, transferData, onConsumeTransfer, editingTask, onTaskLoaded, draft, updateDraft }) => {
+      const baseImage = draft?.baseImage || null;
+      const points = draft?.points || [];
+      const activePoint = draft?.activePoint || null;
+      const settings = draft?.settings || { size: "2K", ratio: "ORIGINAL" };
+
+      const setBaseImage = (val) => updateDraft({ baseImage: typeof val === 'function' ? val(baseImage) : val });
+      const setPoints = (val) => updateDraft({ points: typeof val === 'function' ? val(points) : val });
+      const setActivePoint = (val) => updateDraft({ activePoint: typeof val === 'function' ? val(activePoint) : val });
+      const setSettings = (val) => updateDraft({ settings: typeof val === 'function' ? val(settings) : val });
 
       // ... (useEffect for restore/transfer same as before) ...
       useEffect(() => {
@@ -1649,11 +1841,17 @@
       useEffect(() => {
         if (transferData && transferData.target === 'inpaint') {
           const img = new Image();
-          img.onload = () => { setBaseImage({ preview: transferData.payload, file: null, width: img.width, height: img.height, url: transferData.payload }); setPoints([]); showToast("图片已设为重绘底图"); };
+          img.onload = () => {
+            updateDraft({
+              baseImage: { preview: transferData.payload, file: null, width: img.width, height: img.height, url: transferData.payload },
+              points: []
+            });
+            showToast("图片已设为重绘底图");
+          };
           img.src = transferData.payload;
           onConsumeTransfer();
         }
-      }, [transferData, onConsumeTransfer]);
+      }, [transferData, onConsumeTransfer, updateDraft]);
 
       const handleBaseUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (evt) => { const img = new Image(); img.onload = () => { setBaseImage({ preview: evt.target.result, file, width: img.width, height: img.height }); setPoints([]); }; img.src = evt.target.result; }; reader.readAsDataURL(file); } };
       const handleImageClick = (e) => { if (!baseImage) return; const rect = e.target.getBoundingClientRect(); const x = (e.clientX - rect.left) / rect.width; const y = (e.clientY - rect.top) / rect.height; const newId = points.length + 1; const newPoint = { id: newId, x, y, mode: 'text', refImg: null, desc: '', generatedPrompt: '', isNew: true }; setPoints([...points, newPoint]); setActivePoint(newPoint); };
@@ -1670,9 +1868,8 @@
         const processingSettings = { ...settings };
 
         // Clear local state immediately for UX
-        setBaseImage(null);
-        setPoints([]);
-        setActivePoint(null);
+        const resetDraft = { baseImage: null, points: [], activePoint: null };
+        updateDraft(resetDraft);
         showToast("任务已提交后台处理");
 
         (async () => {
@@ -1702,7 +1899,10 @@
                 status: 'analyzing',
                 progress: 0,
                 extraData: { baseImageUrl: currentBaseImgUrl, baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height }, points: [], refs: [] },
-                settings: processingSettings // PERSIST SETTINGS
+                settings: {
+                  ...processingSettings,
+                  model: getEffectiveModel(config, processingSettings.size)
+                } // PERSIST SETTINGS
               });
             });
 
@@ -2104,6 +2304,18 @@
       const [editingTask, setEditingTask] = useState(null);
       const [transferData, setTransferData] = useState(null);
 
+      // --- DRAFT PERSISTENCE ---
+      // We store the state of each tab here so it survives tab switching
+      const [tabDrafts, setTabDrafts] = useState({
+        txt2img: { prompt: "", settings: { size: "2K", ratio: "1:1" } },
+        img2img: { refs: [], prompt: "", settings: { size: "2K", ratio: "1:1" }, customPicRatio: null },
+        inpaint: { baseImage: null, points: [], settings: { size: "2K", ratio: "ORIGINAL" }, activePoint: null }
+      });
+
+      const updateDraft = (tab, newData) => {
+        setTabDrafts(prev => ({ ...prev, [tab]: { ...prev[tab], ...newData } }));
+      };
+
       const showToast = (message, type = 'info') => { setToast({ show: true, message, type }); };
       const addToHistory = (item) => { setHistory(prev => [item, ...prev]); };
       const updateHistory = (id, newProps) => { setHistory(prev => prev.map(item => item.id === id ? { ...item, ...newProps } : item)); };
@@ -2263,13 +2475,51 @@
       };
 
       return (
-        <div className="h-full w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative flex flex-col overflow-hidden">
+        <div className="h-full w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative flex flex-col overflow-hidden safe-area-top-spacer">
           <Header onSettings={() => setShowSettings(true)} />
           <main className="flex-1 relative w-full overflow-hidden">
-            {activeTab === 'txt2img' && <Txt2Img addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} />}
-            {activeTab === 'img2img' && <Img2Img addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} />}
+            {activeTab === 'txt2img' && (
+              <Txt2Img
+                addToHistory={addToHistory}
+                updateHistory={updateHistory}
+                config={config}
+                showToast={showToast}
+                editingTask={editingTask}
+                onTaskLoaded={() => setEditingTask(null)}
+                draft={tabDrafts.txt2img}
+                updateDraft={(d) => updateDraft('txt2img', d)}
+              />
+            )}
+            {activeTab === 'img2img' && (
+              <Img2Img
+                addToHistory={addToHistory}
+                updateHistory={updateHistory}
+                config={config}
+                showToast={showToast}
+                editingTask={editingTask}
+                onTaskLoaded={() => setEditingTask(null)}
+                transferData={transferData}
+                onConsumeTransfer={() => setTransferData(null)}
+                draft={tabDrafts.img2img}
+                updateDraft={(d) => updateDraft('img2img', d)}
+              />
+            )}
             {activeTab === 'supertask' && <SuperTaskMode addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} state={superTaskState} setState={setSuperTaskState} />}
-            {activeTab === 'inpaint' && <InpaintMode addToHistory={addToHistory} updateHistory={updateHistory} historyItems={history} config={config} showToast={showToast} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} />}
+            {activeTab === 'inpaint' && (
+              <InpaintMode
+                addToHistory={addToHistory}
+                updateHistory={updateHistory}
+                historyItems={history}
+                config={config}
+                showToast={showToast}
+                transferData={transferData}
+                onConsumeTransfer={() => setTransferData(null)}
+                editingTask={editingTask}
+                onTaskLoaded={() => setEditingTask(null)}
+                draft={tabDrafts.inpaint}
+                updateDraft={(d) => updateDraft('inpaint', d)}
+              />
+            )}
             {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} onBatchRerun={handleBatchRerun} showToast={showToast} />}
           </main>
           <TabBar activeTab={activeTab} setTab={setTab} />
