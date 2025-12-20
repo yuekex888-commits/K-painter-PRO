@@ -349,45 +349,86 @@
       return accessKey + ':' + encodedSign + ':' + encodedPutPolicy;
     }
 
-    const uploadImageToQiniu = async (file, config) => {
+    // --- JPG Conversion Utility ---
+    const convertToJpg = async (input) => {
+      let blob = input;
+      // If input is a URL, fetch it first
+      if (typeof input === 'string') {
+        if (input.startsWith('data:image/jpeg') || input.startsWith('data:image/jpg')) {
+          return fetch(input).then(r => r.blob());
+        }
+        try {
+          const response = await fetch(input);
+          blob = await response.blob();
+        } catch (e) {
+          console.error("Failed to fetch image for conversion:", input);
+          return null;
+        }
+      }
+
+      if (!blob) return null;
+
+      // If already JPEG, return directly
+      if (blob.type === 'image/jpeg' || blob.type === 'image/jpg') {
+        return blob;
+      }
+
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          // Fill white background for Transparent PNGs
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((jpgBlob) => {
+            resolve(jpgBlob);
+          }, 'image/jpeg', 0.95);
+        };
+        img.onerror = () => resolve(blob); // Fallback
+        img.src = URL.createObjectURL(blob);
+      });
+    };
+
+    const uploadImageToQiniu = async (fileOrUrl, config) => {
+      // 1. Force Convert to JPG (Handles both File objects and URL strings)
+      const jpgBlob = await convertToJpg(fileOrUrl);
+
+      if (!jpgBlob) {
+        // Fallback if conversion fails or input invalid
+        return typeof fileOrUrl === 'string' ? fileOrUrl : URL.createObjectURL(fileOrUrl);
+      }
+
+      // Ensure it has a name for Qiniu
+      const fileName = `image_${Date.now()}.jpg`;
+      const fileToUpload = new File([jpgBlob], fileName, { type: 'image/jpeg' });
+
       // Model 2 Support: Return Base64 directly
       if (config.activeModel === 'model2') {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result);
           reader.onerror = reject;
-          reader.readAsDataURL(file);
+          reader.readAsDataURL(fileToUpload);
         });
       }
 
       return new Promise((resolve, reject) => {
-        if (typeof file === 'string' && file.startsWith('http')) {
-          resolve(file);
-          return;
-        }
-
         if (!config.qiniuAk || !config.qiniuSk) {
           console.warn("未配置七牛云密钥，使用模拟Blob");
-          resolve(URL.createObjectURL(file));
+          resolve(URL.createObjectURL(fileToUpload));
           return;
-        }
-
-        if (!file || !file.name) {
-          if (file instanceof Blob) {
-            file.name = `blob_${Date.now()}.png`;
-          } else {
-            console.error("Invalid file object for upload:", file);
-            resolve(null);
-            return;
-          }
         }
 
         try {
           const token = genUpToken(config.qiniuAk, config.qiniuSk, config.qiniuBucket);
-          const key = `${randomString(8)}_${file.name}`;
+          const key = `${randomString(8)}_${fileToUpload.name}`;
           const formData = new FormData();
           formData.append('token', token);
-          formData.append('file', file);
+          formData.append('file', fileToUpload);
           formData.append('key', key);
 
           const xhr = new XMLHttpRequest();
@@ -396,16 +437,16 @@
             if (xhr.status === 200) {
               const res = JSON.parse(xhr.responseText);
               const finalUrl = `http://${config.qiniuDomain}/${res.key}`;
-              console.log("Upload success:", finalUrl);
+              console.log("Upload JPG success:", finalUrl);
               resolve(finalUrl);
             } else {
               console.error("Qiniu Upload Failed:", xhr.responseText);
-              resolve(URL.createObjectURL(file));
+              resolve(URL.createObjectURL(fileToUpload));
             }
           };
-          xhr.onerror = function () { console.error("Qiniu Network Error"); resolve(URL.createObjectURL(file)); };
+          xhr.onerror = function () { console.error("Qiniu Network Error"); resolve(URL.createObjectURL(fileToUpload)); };
           xhr.send(formData);
-        } catch (e) { console.error("Token Gen Error:", e); resolve(URL.createObjectURL(file)); }
+        } catch (e) { console.error("Token Gen Error:", e); resolve(URL.createObjectURL(fileToUpload)); }
       });
     };
 
@@ -422,6 +463,11 @@
     };
 
     const callVisionModel = async (imageUrl, promptText, config) => {
+      // NOTE: imageUrl passed here is likely already a URL. 
+      // If prompt logic uses uploadImageToQiniu before calling this, it is already JPG.
+      // But for safety, one might want to ensure it, but converting a remote URL here is redundant if we enforce it at upload stage.
+      // We assume upstream logic (SuperTask) calls uploadImageToQiniu first.
+
       if (imageUrl.startsWith('blob:') || imageUrl.startsWith('mock-')) {
         await new Promise(r => setTimeout(r, 1500));
         return "Mock: 画面左侧的红色椅子";
@@ -633,7 +679,8 @@
       let attempt = 0;
       while (attempt < maxRetries) {
         try {
-          const taskId = await submitFn();
+          // Pass attempt count to submitFn for dynamic Switching logic
+          const taskId = await submitFn(attempt);
           const url = await pollFn(taskId);
           return { url, taskId };
         } catch (e) {
@@ -954,15 +1001,15 @@
     const TabBar = ({ activeTab, setTab }) => {
       const tabs = [{ id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' },];
       return (
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex justify-around items-end z-50">
+        <div className="absolute bottom-0 left-0 right-0 bg-white/95 border-t-2 border-black px-2 pt-1 pb-[env(safe-area-inset-bottom)] flex justify-around items-end z-50 backdrop-blur-sm">
           {tabs.map(tab => {
             const isActive = activeTab === tab.id;
             return (
-              <button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all justify-center py-2 px-1 rounded-lg ${isActive ? 'bg-gray-100' : ''}`}>
-                <div className={`w-10 h-10 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_0px_#000]') : 'bg-gray-100'}`}>
-                  <tab.icon size={20} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} />
+              <button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-0.5 transition-all justify-center py-1 px-1 rounded-lg ${isActive ? 'bg-gray-100' : ''}`}>
+                <div className={`w-8 h-8 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[1px_1px_0px_0px_#000]' : 'bg-yellow-400 shadow-[1px_1px_0px_0px_#000]') : 'bg-gray-100'}`}>
+                  <tab.icon size={16} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} />
                 </div>
-                <span className="text-[10px] font-bold">{tab.label}</span>
+                <span className="text-[9px] font-bold scale-90">{tab.label}</span>
               </button>
             )
           })}
@@ -1343,33 +1390,16 @@
               }
 
               // Save calculated ratio for downstream tasks
+              // Save calculated ratio for downstream tasks
               statusObj.generatedRatio = aspectRatio;
-
-              // Prompt Remapping: Invert indices because we reverse the array
-              // Now regex depends on configured prefix
-              const totalRefs = urls.length;
-              const dynamicRegex = new RegExp("\\[" + tagPrefix + "(\\d+)\\]", "g"); // FIXED: String concatenation for safer parsing
-
-              if (totalRefs > 0) {
-                finalPrompt = finalPrompt.replace(dynamicRegex, (match, num) => {
-                  const n = parseInt(num);
-                  if (n > 0 && n <= totalRefs) {
-                    const newN = totalRefs - n + 1;
-                    return `[${tagPrefix}${newN}]`;
-                  }
-                  return match;
-                });
-              }
 
               // Translate Prompt if enabled
               finalPrompt = await translateText(finalPrompt, config);
 
-              // REVERSE URLs order for submission as requested (MOVED UP)
-              const finalUrlsForSubmission = [...urls].reverse();
+              // Use URLs in original order (NO REVERSAL per user request)
+              const finalUrlsForSubmission = [...urls];
 
               // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
-              // We save the REVERSED urls to history so that Rerun/Copy/View Params show the correct order that matches the reversed prompt
-              // Also save the calculated ratio to settings so Rerun/Copy works correctly
               const currentTaskSettings = {
                 ...settings,
                 ratio: aspectRatio,
@@ -1377,12 +1407,19 @@
               };
               updateHistory(statusObj.historyId, {
                 prompt: finalPrompt,
-                extraData: { refs: finalUrlsForSubmission }, // Save REVERSED urls
+                extraData: { refs: finalUrlsForSubmission },
                 settings: currentTaskSettings
               });
 
               const { url, taskId } = await runTaskWithRetry(
-                () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, config),
+                (attempt) => {
+                  let tempConfig = { ...config };
+                  if (attempt > 0) {
+                    if (attempt % 2 !== 0) tempConfig.activeModel = 'model1';
+                    else tempConfig.activeModel = 'model2';
+                  }
+                  return submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, tempConfig);
+                },
                 (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
                 10,
                 (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -1449,7 +1486,7 @@
       };
 
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(60px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in">
           <div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-50 overflow-hidden relative">
             <div className="flex justify-between items-center mb-2 flex-shrink-0">
               <h2 className="text-xl font-black flex items-center gap-2"><Zap size={24} className="text-red-500 fill-current" /> 超级任务</h2>
@@ -1636,7 +1673,15 @@
           if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
 
           const { url, taskId } = await runTaskWithRetry(
-            () => submitDrawTask(finalPrompt, settings.ratio, settings.size, [], config),
+            (attempt) => {
+              // Retry Logic: Odd -> Model 1, Even -> Model 2
+              let tempConfig = { ...config };
+              if (attempt > 0) {
+                if (attempt % 2 !== 0) tempConfig.activeModel = 'model1';
+                else tempConfig.activeModel = 'model2';
+              }
+              return submitDrawTask(finalPrompt, settings.ratio, settings.size, [], tempConfig);
+            },
             (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
             10,
             (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -1654,7 +1699,7 @@
           updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` });
         }
       };
-      return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
+      return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(60px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
     };
 
     // --- Img2Img ---
@@ -1780,7 +1825,14 @@
           if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
 
           const { url, taskId } = await runTaskWithRetry(
-            () => submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, config),
+            (attempt) => {
+              let tempConfig = { ...config };
+              if (attempt > 0) {
+                if (attempt % 2 !== 0) tempConfig.activeModel = 'model1';
+                else tempConfig.activeModel = 'model2';
+              }
+              return submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, tempConfig);
+            },
             (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
             10,
             (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -1800,7 +1852,7 @@
         }
       };
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(60px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <div className="flex gap-2 overflow-x-auto pb-2 mb-2 flex-shrink-0">{refs.map((ref, idx) => (<div key={idx} className="relative w-24 h-24 flex-shrink-0 border-2 border-black rounded-lg overflow-hidden bg-white group"><img src={ref.preview} className="w-full h-full object-cover" /><button onClick={() => removeRef(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 border border-black shadow hover:scale-110 active:scale-90 transition-transform"><X size={12} /></button><div className="absolute bottom-0 right-0 bg-black text-white text-[10px] px-1">{idx + 1}</div></div>))}<label className="w-24 h-24 flex-shrink-0 border-2 border-dashed border-black rounded-lg flex flex-col items-center justify-center bg-white cursor-pointer active:bg-gray-200"><Plus size={24} /><span className="text-xs font-bold">添加</span><input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} /></label></div>
           <textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[100px]" placeholder="输入补充提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} />
           <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_img2img" />
@@ -1982,7 +2034,14 @@
 
               try {
                 const { url, taskId } = await runTaskWithRetry(
-                  () => submitDrawTask(groupPrompts, baseRatio, processingSettings.size, groupRefs, config),
+                  (attempt) => {
+                    let tempConfig = { ...config };
+                    if (attempt > 0) {
+                      if (attempt % 2 !== 0) tempConfig.activeModel = 'model1';
+                      else tempConfig.activeModel = 'model2';
+                    }
+                    return submitDrawTask(groupPrompts, baseRatio, processingSettings.size, groupRefs, tempConfig);
+                  },
                   (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
                   10,
                   (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -2008,7 +2067,7 @@
       };
 
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({ ...settings, size: '2K' })} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({ ...settings, size: '4K' })} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(60px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({ ...settings, size: '2K' })} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({ ...settings, size: '4K' })} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
           {activePoint && (
             <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
               <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in">
@@ -2155,7 +2214,7 @@
       };
 
       return (
-        <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
+        <div className="absolute inset-0 px-3 pt-2 pb-[calc(60px+env(safe-area-inset-bottom))] flex flex-col animate-fade-in">
           <div className="cartoon-box flex-1 flex flex-col p-4 bg-purple-100 overflow-hidden">
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <h2 className="text-xl font-black flex items-center gap-2">
@@ -2362,7 +2421,14 @@
 
           // Use runTaskWithRetry for automatic 10x retry
           const { url, taskId } = await runTaskWithRetry(
-            () => submitDrawTask(prompt, ratio, size, urls, config),
+            (attempt) => {
+              let tempConfig = { ...config };
+              if (attempt > 0) {
+                if (attempt % 2 !== 0) tempConfig.activeModel = 'model1';
+                else tempConfig.activeModel = 'model2';
+              }
+              return submitDrawTask(prompt, ratio, size, urls, tempConfig);
+            },
             (id) => pollTaskResult(id, (p) => updateHistory(task.id, { progress: p }), config),
             10,
             (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
@@ -2429,8 +2495,17 @@
             }
           }
 
+          // Automatic Rerun/Copy needs strict logic? Copy usually is a new task, but here we treat it like a new submission
+          // Handle Copy (Re-run as new ID)
           const { url, taskId } = await runTaskWithRetry(
-            () => submitDrawTask(prompt, aspectRatio, imageSize, urls, config),
+            (attempt) => {
+              let tempConfig = { ...config };
+              if (attempt > 0) {
+                if (attempt % 2 !== 0) tempConfig.activeModel = 'model1';
+                else tempConfig.activeModel = 'model2';
+              }
+              return submitDrawTask(prompt, aspectRatio, imageSize, urls, tempConfig);
+            },
             (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
             10,
             (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
