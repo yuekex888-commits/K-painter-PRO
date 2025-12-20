@@ -394,17 +394,14 @@
     };
 
     const uploadImageToQiniu = async (fileOrUrl, config) => {
-      // 1. Force Convert to JPG (Handles both File objects and URL strings)
+      // 1. Force Convert to JPG
       const jpgBlob = await convertToJpg(fileOrUrl);
 
       if (!jpgBlob) {
-        // Fallback if conversion fails or input invalid
         return typeof fileOrUrl === 'string' ? fileOrUrl : URL.createObjectURL(fileOrUrl);
       }
 
-      // Ensure it has a name for Qiniu
       const fileName = `image_${Date.now()}.jpg`;
-      const fileToUpload = new File([jpgBlob], fileName, { type: 'image/jpeg' });
 
       // Model 2 Support: Return Base64 directly
       if (config.activeModel === 'model2') {
@@ -412,23 +409,23 @@
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result);
           reader.onerror = reject;
-          reader.readAsDataURL(fileToUpload);
+          reader.readAsDataURL(jpgBlob); // Read blob directly
         });
       }
 
       return new Promise((resolve, reject) => {
         if (!config.qiniuAk || !config.qiniuSk) {
           console.warn("未配置七牛云密钥，使用模拟Blob");
-          resolve(URL.createObjectURL(fileToUpload));
+          resolve(URL.createObjectURL(jpgBlob));
           return;
         }
 
         try {
           const token = genUpToken(config.qiniuAk, config.qiniuSk, config.qiniuBucket);
-          const key = `${randomString(8)}_${fileToUpload.name}`;
+          const key = `${randomString(8)}_${fileName}`;
           const formData = new FormData();
           formData.append('token', token);
-          formData.append('file', fileToUpload);
+          formData.append('file', jpgBlob, fileName); // Append Blob with filename directly
           formData.append('key', key);
 
           const xhr = new XMLHttpRequest();
@@ -441,12 +438,12 @@
               resolve(finalUrl);
             } else {
               console.error("Qiniu Upload Failed:", xhr.responseText);
-              resolve(URL.createObjectURL(fileToUpload));
+              resolve(URL.createObjectURL(jpgBlob));
             }
           };
-          xhr.onerror = function () { console.error("Qiniu Network Error"); resolve(URL.createObjectURL(fileToUpload)); };
+          xhr.onerror = function () { console.error("Qiniu Network Error"); resolve(URL.createObjectURL(jpgBlob)); };
           xhr.send(formData);
-        } catch (e) { console.error("Token Gen Error:", e); resolve(URL.createObjectURL(fileToUpload)); }
+        } catch (e) { console.error("Token Gen Error:", e); resolve(URL.createObjectURL(jpgBlob)); }
       });
     };
 
@@ -617,7 +614,7 @@
       return config.drawModel || "nano-banana-pro";
     };
 
-    const pollTaskResult = async (taskId, onProgress, config) => {
+    const pollTaskResult = async (taskId, onProgress, config, shouldAbort) => {
       // Model 2 Support
       if (typeof taskId === 'string' && taskId.startsWith("direct-")) {
         if (window._task_results_cache && window._task_results_cache[taskId]) {
@@ -626,9 +623,12 @@
         }
       }
       if (taskId.toString().startsWith("mock-")) {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           let p = 0;
-          const interval = setInterval(() => { p += 20; if (onProgress) onProgress(p); if (p >= 100) { clearInterval(interval); resolve(`https://picsum.photos/seed/${taskId}/1024/1024`); } }, 800);
+          const interval = setInterval(() => {
+            if (shouldAbort && shouldAbort()) { clearInterval(interval); reject(new Error("用户手动取消")); return; }
+            p += 20; if (onProgress) onProgress(p); if (p >= 100) { clearInterval(interval); resolve(`https://picsum.photos/seed/${taskId}/1024/1024`); }
+          }, 800);
         });
       }
       return new Promise((resolve, reject) => {
@@ -637,59 +637,67 @@
         let errorCount = 0;
 
         const interval = setInterval(async () => {
+          if (shouldAbort && shouldAbort()) {
+            clearInterval(interval);
+            reject(new Error("用户手动取消"));
+            return;
+          }
           if (Date.now() - startTime > timeoutLimit) {
             clearInterval(interval);
             reject(new Error("任务超时 (500s)"));
             return;
           }
           try {
-            const response = await fetch(config.resultUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
-              body: JSON.stringify({ id: taskId })
-            });
-
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`);
-            }
-
-            const res = await response.json();
-            errorCount = 0;
-
-            if (res.code === 0) {
-              const status = res.data.status;
-              const progress = res.data.progress || 0;
-              if (onProgress) onProgress(progress);
-              if (status === 'succeeded') { clearInterval(interval); resolve(res.data.results[0].url); }
-              else if (status === 'failed') { clearInterval(interval); reject(new Error(res.data.failure_reason || "任务失败")); }
+            const response = await fetch(config.resultUrl + `?id=${taskId}`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            if (data.code === 0) {
+              const task = data.data;
+              if (task.status === 'success') {
+                clearInterval(interval);
+                resolve(task.imageUrl);
+              } else if (task.status === 'failed' || task.status === 'error') {
+                clearInterval(interval);
+                reject(new Error(task.message || "任务生成失败"));
+              } else {
+                if (onProgress && task.progress) onProgress(task.progress);
+              }
+            } else {
+              errorCount++;
+              if (errorCount > 20) { clearInterval(interval); reject(new Error("API Error loop")); }
             }
           } catch (e) {
-            console.error("Polling error", e);
+            console.error("Poll Error:", e);
             errorCount++;
-            if (errorCount > 5) {
-              clearInterval(interval);
-              reject(new Error("网络连接失败或跨域限制 (CORS)"));
-            }
+            if (errorCount > 20) { clearInterval(interval); reject(e); }
           }
-        }, 3000);
+        }, 1000); // Poll every 1s
       });
     };
 
-    const runTaskWithRetry = async (submitFn, pollFn, maxRetries = 10, onRetry) => {
+    const runTaskWithRetry = async (submitFn, pollFn, maxRetries = 10, onRetry, shouldAbort) => {
       let attempt = 0;
       while (attempt < maxRetries) {
+        if (shouldAbort && shouldAbort()) {
+          throw new Error("用户手动取消");
+        }
         try {
           // Pass attempt count to submitFn for dynamic Switching logic
           const taskId = await submitFn(attempt);
-          const url = await pollFn(taskId);
+          const url = await pollFn(taskId, null, null, shouldAbort); // pollFn usually handles internal loops, but if it returns quickly, we are fine
           return { url, taskId };
         } catch (e) {
+          if (e.message.includes("用户手动取消")) throw e; // Don't retry if aborted
           attempt++;
           console.warn(`Task failed, retrying (${attempt}/${maxRetries}):`, e);
           if (onRetry) onRetry(attempt, e.message);
 
           if (attempt >= maxRetries) throw e;
-          await new Promise(r => setTimeout(r, 2000));
+          // Check abort during wait
+          for (let i = 0; i < 20; i++) { // Wait 2s in 100ms chunks to allow fast abort
+            if (shouldAbort && shouldAbort()) throw new Error("用户手动取消");
+            await new Promise(r => setTimeout(r, 100));
+          }
         }
       }
     };
@@ -1530,8 +1538,11 @@
                     {/* Updated Grid for Loop Images */}
                     <div className="grid grid-cols-5 gap-2 py-1">
                       {batchImages.map((img, i) => (
-                        <div key={i} className="aspect-square border border-black rounded overflow-hidden bg-white">
+                        <div key={i} className="relative aspect-square border border-black rounded overflow-hidden bg-white group">
                           <img src={img.preview} className="w-full h-full object-cover" />
+                          <button onClick={() => setBatchImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity">
+                            <X size={10} />
+                          </button>
                         </div>
                       ))}
                       <label className="aspect-square border border-dashed border-black rounded flex items-center justify-center bg-white cursor-pointer">
@@ -2353,6 +2364,11 @@
       const [showSettings, setShowSettings] = useState(false);
       const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
 
+      // Ref for aborting deleted tasks
+      const historyRef = useRef(history);
+      useEffect(() => { historyRef.current = history; }, [history]);
+      const checkTaskActive = (id) => historyRef.current.some(h => h.id === id);
+
       // New state for SuperTask persistence
       const [superTaskState, setSuperTaskState] = useState({
         globalRefs: [],
@@ -2429,9 +2445,10 @@
               }
               return submitDrawTask(prompt, ratio, size, urls, tempConfig);
             },
-            (id) => pollTaskResult(id, (p) => updateHistory(task.id, { progress: p }), config),
+            (id) => pollTaskResult(id, (p) => updateHistory(task.id, { progress: p }), config, () => !checkTaskActive(task.id)),
             10,
-            (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
+            (attempt) => showToast(`自动重试 ${attempt}/10`, "info"),
+            () => !checkTaskActive(task.id)
           );
 
           const isMock = taskId.toString().startsWith("mock-");
@@ -2506,9 +2523,10 @@
               }
               return submitDrawTask(prompt, aspectRatio, imageSize, urls, tempConfig);
             },
-            (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+            (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config, () => !checkTaskActive(tempId)),
             10,
-            (attempt) => showToast(`自动重试 ${attempt}/10`, "info")
+            (attempt) => showToast(`自动重试 ${attempt}/10`, "info"),
+            () => !checkTaskActive(tempId)
           );
 
           const isMock = taskId.toString().startsWith("mock-");
@@ -2563,6 +2581,7 @@
                 onTaskLoaded={() => setEditingTask(null)}
                 draft={tabDrafts.txt2img}
                 updateDraft={(d) => updateDraft('txt2img', d)}
+                checkTaskActive={checkTaskActive}
               />
             )}
             {activeTab === 'img2img' && (
@@ -2577,9 +2596,10 @@
                 onConsumeTransfer={() => setTransferData(null)}
                 draft={tabDrafts.img2img}
                 updateDraft={(d) => updateDraft('img2img', d)}
+                checkTaskActive={checkTaskActive}
               />
             )}
-            {activeTab === 'supertask' && <SuperTaskMode addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} state={superTaskState} setState={setSuperTaskState} />}
+            {activeTab === 'supertask' && <SuperTaskMode addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} state={superTaskState} setState={setSuperTaskState} checkTaskActive={checkTaskActive} />}
             {activeTab === 'inpaint' && (
               <InpaintMode
                 addToHistory={addToHistory}
@@ -2593,6 +2613,7 @@
                 onTaskLoaded={() => setEditingTask(null)}
                 draft={tabDrafts.inpaint}
                 updateDraft={(d) => updateDraft('inpaint', d)}
+                checkTaskActive={checkTaskActive}
               />
             )}
             {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} onBatchRerun={handleBatchRerun} showToast={showToast} />}
