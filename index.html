@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>K-painter PRO v2</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Crypto-JS (保留引用以防其他地方使用，但上传逻辑不再需要) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        html, body { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; background-color: #f0f0f0; overscroll-behavior: none; }
+        #root { height: 100%; width: 100%; }
+        .cartoon-box { background-color: white; border: 3px solid #000; box-shadow: 4px 4px 0px 0px #000; border-radius: 1rem; }
+        .cartoon-btn { background-color: #FFD700; color: black; font-weight: 800; border: 3px solid #000; box-shadow: 3px 3px 0px 0px #000; border-radius: 0.75rem; text-transform: uppercase; transition: all 0.1s ease; cursor: pointer; }
+        .cartoon-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #000; }
+        .cartoon-btn:disabled { background-color: #E5E7EB; color: #9CA3AF; box-shadow: none; transform: none; cursor: not-allowed; }
+        .cartoon-btn.secondary { background-color: #87CEEB; }
+        .cartoon-btn.danger { background-color: #FF6B6B; }
+        .option-btn:active { transform: scale(0.98); }
+        .cartoon-input { border: 3px solid #000; border-radius: 0.75rem; padding: 0.75rem; font-weight: 600; outline: none; background: #fff; }
+        .cartoon-input:focus { background-color: #FFFACD; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes bounceIn { 0% { opacity: 0; transform: scale(0.9); } 70% { opacity: 1; transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+        .animate-bounce-in { animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        /* Tag Styles */
+        .tag-chip {
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 2px solid black;
+            cursor: pointer;
+            margin-right: 4px;
+            display: inline-block;
+        }
+        .tag-pic { background-color: #FED7AA; } /* Orange-200 */
+        .tag-result { background-color: #BBF7D0; } /* Green-200 */
+        
+        /* Selection Styles */
+        .selected-card {
+            border-color: #FFD700 !important;
+            box-shadow: 0 0 0 4px #FFD700 !important;
+        }
+        .check-circle {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .check-circle.checked {
+            background: #FFD700;
+        }
+        
+        /* Prevent text selection during long press */
+        .noselect {
+            -webkit-touch-callout: none; /* iOS Safari */
+            -webkit-user-select: none; /* Safari */
+            -khtml-user-select: none; /* Konqueror HTML */
+            -moz-user-select: none; /* Old versions of Firefox */
+            -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+        }
+        
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #68D391;
+        }
+        
+        /* Preformatted text for params */
+        .params-pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            font-size: 0.75rem;
+            background: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ================= Icons =================
+        const Icons = {
+            Wand2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>),
+            Image: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>),
+            History: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>),
+            Layers: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>),
+            Plus: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>),
+            Upload: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>),
+            Play: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>),
+            X: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
+            Settings: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l.22-.39a2 2 0 0 0-2.73-.73l.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
+            RotateCcw: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>),
+            Trash2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>),
+            Copy: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>),
+            Edit: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>),
+            Eye: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>),
+            Repeat: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>),
+            SendTo: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>),
+            Type: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>),
+            ImagePlus: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>),
+            Replace: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 2c1.1 0 2 .9 2 2v2"/><path d="M22 8c0 1.1-.9 2-2 2"/><path d="M16 10c-1.1 0-2-.9-2-2"/><path d="m3 7 3 3 3-3"/><path d="M6 10V5c0-1.7 1.3-3 3-3h1"/><rect x="2" y="14" width="8" height="8" rx="2"/></svg>),
+            Zap: ({size=24, color="currentColor", fill="none"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>),
+            DownloadCloud: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>),
+            Link: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>),
+            Save: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>),
+            List: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>),
+            Repeat2: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m2 9 3-3 3 3"/><path d="M13 6H5v14"/><path d="m22 15-3 3-3-3"/><path d="M11 18h8V4"/></svg>),
+            ExternalLink: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>),
+            Check: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
+            CheckSquare: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>),
+            Languages: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>),
+            Info: ({size=24, color="currentColor"}) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>)
+        };
+        
+        const { Image: ImageIcon, Wand2, History, Layers, Plus, X, Upload, Play, Settings, RotateCcw, Trash2, Copy, Edit, Eye, Repeat, SendTo, Type, ImagePlus, Replace, Zap, DownloadCloud, Link: LinkIcon, Save, List, Repeat2, ExternalLink, Check, CheckSquare, Languages, Info } = Icons;
+
+        // ================= Config =================
+        const DEFAULT_CONFIG = {
+            apiKey: "sk-28c0d0093c2c4486ac3b394da91f7386",
+            submitUrl: "https://grsai.dakka.com.cn/v1/draw/nano-banana",
+            resultUrl: "https://grsai.dakka.com.cn/v1/draw/result",
+            visionUrl: "https://api.grsai.com/v1/chat/completions",
+            visionPrompt: "告诉我图片[[坐标AAA]]按百分比算，横纵坐标（左和上为0，右和下为1），点击的东西是什么。直接回答物体名称，不要出现坐标数字，不要出现“位于图片...”等描述。",
+            inpaintPrompt: "将[[答案A]][任务指令X]；", 
+            inpaintBatchSize: 3, 
+            qiniuAk: "aFSte7dyeDs9kWCDJ5IERTyWdBfMI-tvj_VSWi_Y",
+            qiniuSk: "Eo7537HjfeJ7nz1oHOp34azBYylqKOzCWZz9wsuC",
+            qiniuBucket: "ke5295421621",
+            qiniuDomain: "t6e7a787u.hn-bkt.clouddn.com",
+            qiniuUploadUrl: "https://upload-z2.qiniup.com",
+            drawModel: "nano-banana-pro", // Configurable
+            visionModel: "gemini-3-pro", // Configurable
+            enableTranslate: false,
+            translatePrompt: "You are a professional translator. Translate the following painting prompt into accurate English for Stable Diffusion. Direct output, no explanation."
+        };
+        
+        // ================= Utils =================
+
+        function randomString(length) {
+            const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let result = '';
+            for (let i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
+            return result;
+        }
+
+        function genUpToken(accessKey, secretKey, bucket) {
+            const policy = { scope: bucket, deadline: Math.floor(Date.now() / 1000) + 3600 };
+            const putPolicy = JSON.stringify(policy);
+            const encodedPutPolicy = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(putPolicy)).replace(/\+/g, '-').replace(/\//g, '_');
+            const sign = CryptoJS.HmacSHA1(encodedPutPolicy, secretKey);
+            const encodedSign = sign.toString(CryptoJS.enc.Base64).replace(/\+/g, '-').replace(/\//g, '_');
+            return accessKey + ':' + encodedSign + ':' + encodedPutPolicy;
+        }
+
+        // ============== 修改开始：新的上传逻辑 ==============
+        const uploadImageToQiniu = async (file, config) => {
+            return new Promise((resolve, reject) => {
+                // 如果已经是 URL，直接返回
+                if (typeof file === 'string' && file.startsWith('http')) {
+                    resolve(file);
+                    return;
+                }
+
+                // 确保 file 对象有效
+                if (!file) {
+                    console.error("No file provided for upload");
+                    resolve(null);
+                    return;
+                }
+
+                // 如果是 Blob 但没有 name，稍微处理一下（虽然新接口可能不需要，但为了安全）
+                let fileToUpload = file;
+                if (fileToUpload instanceof Blob && !fileToUpload.name) {
+                     fileToUpload = new File([fileToUpload], `upload_${Date.now()}.png`, { type: fileToUpload.type || 'image/png' });
+                }
+
+                const formData = new FormData();
+                formData.append('file', fileToUpload);
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'http://110.42.136.125/qiniu.php', true);
+                
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        try {
+                            const res = JSON.parse(xhr.responseText);
+                            if (res.code === 0 && res.data && res.data.url) {
+                                console.log("Upload success:", res.data.url);
+                                resolve(res.data.url);
+                            } else {
+                                console.error("Upload API Error:", res.msg);
+                                // 失败时尝试回退到 blob URL 以保证功能可用
+                                if (fileToUpload instanceof Blob) {
+                                    resolve(URL.createObjectURL(fileToUpload));
+                                } else {
+                                    reject(new Error(res.msg || "上传失败"));
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse upload response", e);
+                            if (fileToUpload instanceof Blob) {
+                                resolve(URL.createObjectURL(fileToUpload));
+                            } else {
+                                reject(new Error("服务器响应解析失败"));
+                            }
+                        }
+                    } else {
+                        console.error("Upload HTTP Error:", xhr.statusText);
+                        if (fileToUpload instanceof Blob) {
+                            resolve(URL.createObjectURL(fileToUpload));
+                        } else {
+                            reject(new Error("网络错误: " + xhr.status));
+                        }
+                    }
+                };
+
+                xhr.onerror = function() {
+                    console.error("Upload Network Error");
+                    if (fileToUpload instanceof Blob) {
+                        resolve(URL.createObjectURL(fileToUpload));
+                    } else {
+                        reject(new Error("网络连接失败"));
+                    }
+                };
+
+                xhr.send(formData);
+            });
+        };
+        // ============== 修改结束 ==============
+
+        const cleanVisionResponse = (text) => {
+            if (!text) return "";
+            let cleaned = text.replace(/[\s\S]*?<\/think>/g, '').trim();
+            cleaned = cleaned
+                .replace(/坐标\s*[\(（][\d\.\s,，]+[\)）]/g, '') 
+                .replace(/位于图片.*?的/g, '')
+                .replace(/^\s*\+\s*/, '') 
+                .replace(/^[\s,，]+/, '')
+                .trim();
+            return cleaned;
+        };
+
+        const callVisionModel = async (imageUrl, promptText, config) => {
+            if (imageUrl.startsWith('blob:') || imageUrl.startsWith('mock-')) {
+                await new Promise(r => setTimeout(r, 1500));
+                return "Mock: 画面左侧的红色椅子";
+            }
+            try {
+                const response = await fetch(config.visionUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+                    body: JSON.stringify({ model: config.visionModel || "gemini-3-pro", messages: [{ role: "user", content: [{ type: "text", text: promptText }, { type: "image_url", image_url: { url: imageUrl } }] }] })
+                });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                const rawContent = data.choices[0].message.content;
+                return cleanVisionResponse(rawContent); 
+            } catch (error) {
+                return "识别失败"; 
+            }
+        };
+
+        const translateText = async (text, config) => {
+            if (!config.enableTranslate || !text) return text;
+            try {
+                const response = await fetch(config.visionUrl, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+                    body: JSON.stringify({ 
+                        model: config.visionModel || "gemini-3-pro", 
+                        messages: [
+                            { role: "system", content: config.translatePrompt },
+                            { role: "user", content: text }
+                        ] 
+                    })
+                });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                let translated = data.choices[0].message.content.trim();
+                translated = translated.replace(/[\s\S]*?<\/think>/g, '').trim();
+                console.log(`Translated: "${text}" -> "${translated}"`);
+                return translated;
+            } catch (error) {
+                console.warn("Translation failed, using original text:", error);
+                return text;
+            }
+        };
+
+        const submitDrawTask = async (prompt, aspectRatio, imageSize, imageUrls = [], config) => {
+            try {
+                const payload = { model: config.drawModel || "nano-banana-pro", prompt, aspectRatio, imageSize, urls: imageUrls, webHook: "-1", shutProgress: false };
+                console.log("Submitting Payload:", payload);
+                
+                const response = await fetch(config.submitUrl, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` }, 
+                    body: JSON.stringify(payload) 
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Submit Failed: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (data.code !== 0) throw new Error(data.msg || "API Error");
+                return data.data.id;
+            } catch (error) {
+                if (error.message.includes("insufficient credits") || error.message.includes("余额")) {
+                    console.warn("API 余额不足，自动切换到演示模式");
+                    return "mock-" + Date.now();
+                }
+                throw error;
+            }
+        };
+
+        const pollTaskResult = async (taskId, onProgress, config) => {
+            if (taskId.toString().startsWith("mock-")) {
+                return new Promise((resolve) => {
+                    let p = 0;
+                    const interval = setInterval(() => { p += 20; if (onProgress) onProgress(p); if (p >= 100) { clearInterval(interval); resolve(`https://picsum.photos/seed/${taskId}/1024/1024`); } }, 800);
+                });
+            }
+            return new Promise((resolve, reject) => {
+                const startTime = Date.now();
+                const timeoutLimit = 500000; 
+                let errorCount = 0;
+
+                const interval = setInterval(async () => {
+                    if (Date.now() - startTime > timeoutLimit) { 
+                        clearInterval(interval); 
+                        reject(new Error("任务超时 (500s)"));
+                        return; 
+                    }
+                    try {
+                        const response = await fetch(config.resultUrl, { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` }, 
+                            body: JSON.stringify({ id: taskId }) 
+                        });
+                        
+                        if (!response.ok) {
+                             throw new Error(`HTTP ${response.status}`);
+                        }
+
+                        const res = await response.json();
+                        errorCount = 0; 
+
+                        if (res.code === 0) {
+                            const status = res.data.status;
+                            const progress = res.data.progress || 0;
+                            if (onProgress) onProgress(progress);
+                            if (status === 'succeeded') { clearInterval(interval); resolve(res.data.results[0].url); } 
+                            else if (status === 'failed') { clearInterval(interval); reject(new Error(res.data.failure_reason || "任务失败")); }
+                        }
+                    } catch (e) { 
+                        console.error("Polling error", e);
+                        errorCount++;
+                        if (errorCount > 5) { 
+                            clearInterval(interval); 
+                            reject(new Error("网络连接失败或跨域限制 (CORS)"));
+                        }
+                    }
+                }, 3000);
+            });
+        };
+
+        const runTaskWithRetry = async (submitFn, pollFn, maxRetries = 10, onRetry) => {
+            let attempt = 0;
+            while (attempt < maxRetries) {
+                try {
+                    const taskId = await submitFn();
+                    const url = await pollFn(taskId);
+                    return { url, taskId }; 
+                } catch (e) {
+                    attempt++;
+                    console.warn(`Task failed, retrying (${attempt}/${maxRetries}):`, e);
+                    if (onRetry) onRetry(attempt, e.message);
+                    
+                    if (attempt >= maxRetries) throw e; 
+                    await new Promise(r => setTimeout(r, 2000)); 
+                }
+            }
+        };
+
+        const blobToBase64 = (blob) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        };
+
+        const dataURLtoFile = (dataurl, filename) => {
+            let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new File([u8arr], filename, {type:mime});
+        }
+
+        // ================= UI Components =================
+
+        const Toast = ({ message, type, show, onClose }) => {
+            useEffect(() => { if (show) { const timer = setTimeout(onClose, 2500); return () => clearTimeout(timer); } }, [show, onClose]);
+            if (!show) return null;
+            const bgColor = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-500' : 'bg-black');
+            return (
+                <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 ${bgColor} text-white px-6 py-2 rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] z-[200] animate-bounce-in font-bold flex items-center gap-2 border-2 border-white`}>
+                    {type === 'success' && <div className="w-2 h-2 bg-white rounded-full"></div>} {message}
+                </div>
+            );
+        };
+
+        const InputModal = ({ isOpen, title, defaultValue, onConfirm, onCancel }) => {
+            const [value, setValue] = useState(defaultValue || '');
+            useEffect(() => { if (isOpen) setValue(defaultValue || ''); }, [isOpen, defaultValue]);
+            
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-4 animate-bounce-in">
+                        <h3 className="text-lg font-black text-center">{title}</h3>
+                        <input 
+                            type="text" 
+                            className="cartoon-input w-full" 
+                            value={value} 
+                            onChange={(e) => setValue(e.target.value)} 
+                            placeholder="请输入..."
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <button onClick={onCancel} className="cartoon-btn secondary flex-1 py-2">取消</button>
+                            <button onClick={() => onConfirm(value)} className="cartoon-btn flex-1 py-2">确认</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Params Modal
+        const ParamsModal = ({ isOpen, onClose, task }) => {
+            if (!isOpen || !task) return null;
+            
+            const params = {
+                prompt: task.prompt,
+                model: task.settings?.model || "nano-banana-pro",
+                aspect_ratio: task.settings?.ratio || "N/A",
+                image_size: task.settings?.size || "N/A",
+                reference_images: task.extraData?.refs || []
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                            <h3 className="text-lg font-black">任务参数详情</h3>
+                            <button onClick={onClose}><X size={20} /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto no-scrollbar">
+                            <div className="space-y-2">
+                                <div>
+                                    <div className="text-xs font-bold text-gray-500">提示词</div>
+                                    <div className="text-xs bg-gray-100 p-2 rounded border border-gray-200">{params.prompt}</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <div className="text-xs font-bold text-gray-500">比例</div>
+                                        <div className="text-xs font-mono">{params.aspect_ratio}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs font-bold text-gray-500">尺寸</div>
+                                        <div className="text-xs font-mono">{params.image_size}</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-gray-500">参考图 ({params.reference_images.length})</div>
+                                    {params.reference_images.length > 0 ? (
+                                        <div className="flex gap-1 overflow-x-auto py-1">
+                                            {params.reference_images.map((url, i) => (
+                                                <a key={i} href={url} target="_blank" className="block w-10 h-10 border border-black rounded overflow-hidden flex-shrink-0">
+                                                    <img src={url} className="w-full h-full object-cover" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : <div className="text-xs text-gray-400">无</div>}
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-gray-500">完整 JSON</div>
+                                    <pre className="params-pre">{JSON.stringify(params, null, 2)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="cartoon-btn w-full py-2 text-sm">关闭</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const PromptManager = ({ currentPrompt, setPrompt, showToast, storageKey = 'kpainter_prompts' }) => {
+            const [savedPrompts, setSavedPrompts] = useState([]);
+            const [showListModal, setShowListModal] = useState(false);
+            const [inputModal, setInputModal] = useState({ show: false, title: '', defaultValue: '', onConfirm: null });
+
+            useEffect(() => {
+                const loaded = localStorage.getItem(storageKey);
+                if (loaded) {
+                    let parsed = JSON.parse(loaded);
+                    if (parsed.length > 0 && typeof parsed[0] === 'string') {
+                        parsed = parsed.map((p, i) => ({ id: Date.now() + i, name: `提示词 ${i+1}`, content: p }));
+                        localStorage.setItem(storageKey, JSON.stringify(parsed));
+                    }
+                    setSavedPrompts(parsed);
+                } else {
+                    setSavedPrompts([]); 
+                }
+            }, [storageKey]);
+
+            const openSaveModal = () => {
+                if (!currentPrompt.trim()) return showToast("提示词为空", "error");
+                setInputModal({
+                    show: true,
+                    title: "保存提示词",
+                    defaultValue: `提示词 ${savedPrompts.length + 1}`,
+                    onConfirm: (name) => {
+                        if (!name) return;
+                        const newPrompt = { id: Date.now(), name, content: currentPrompt };
+                        const newPrompts = [newPrompt, ...savedPrompts].slice(0, 15);
+                        setSavedPrompts(newPrompts);
+                        localStorage.setItem(storageKey, JSON.stringify(newPrompts));
+                        showToast("提示词已保存");
+                        setInputModal(prev => ({ ...prev, show: false }));
+                    }
+                });
+            };
+
+            const selectPrompt = (p) => {
+                setPrompt(p.content);
+                setShowListModal(false);
+                showToast(`已加载：${p.name}`);
+            };
+
+            const deletePrompt = (id) => {
+                const newPrompts = savedPrompts.filter(p => p.id !== id);
+                setSavedPrompts(newPrompts);
+                localStorage.setItem(storageKey, JSON.stringify(newPrompts));
+            };
+
+            const openRenameModal = (id, oldName) => {
+                setInputModal({
+                    show: true,
+                    title: "重命名提示词",
+                    defaultValue: oldName,
+                    onConfirm: (newName) => {
+                        if (!newName) return;
+                        const newPrompts = savedPrompts.map(p => p.id === id ? { ...p, name: newName } : p);
+                        setSavedPrompts(newPrompts);
+                        localStorage.setItem(storageKey, JSON.stringify(newPrompts));
+                        setInputModal(prev => ({ ...prev, show: false }));
+                    }
+                });
+            };
+
+            return (
+                <div className="flex gap-2 my-3">
+                    <button onClick={openSaveModal} className="cartoon-btn secondary flex-1 py-2 text-xs flex items-center justify-center gap-2 bg-yellow-200"><Save size={16}/> 保存当前提示词</button>
+                    <button onClick={() => setShowListModal(true)} className="cartoon-btn flex-1 py-2 text-xs flex items-center justify-center gap-2 bg-white"><List size={16}/> 我的提示词本 ({savedPrompts.length})</button>
+                    
+                    {showListModal && (
+                        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                            <div className="cartoon-box bg-white w-full max-w-sm p-4 flex flex-col max-h-[70vh] animate-bounce-in">
+                                <div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="font-black text-lg">我的提示词本</h3><button onClick={() => setShowListModal(false)}><X size={20}/></button></div>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                                    {savedPrompts.length === 0 ? <div className="text-center text-gray-400 text-xs py-4">还没有收藏的提示词哦</div> : 
+                                    savedPrompts.map((p) => (
+                                        <div key={p.id} className="flex gap-2 items-start border-2 border-gray-100 rounded-lg p-2 hover:bg-yellow-50 transition-colors">
+                                            <div onClick={() => selectPrompt(p)} className="flex-1 cursor-pointer">
+                                                <div className="font-bold text-xs mb-1">{p.name}</div>
+                                                <div className="text-[10px] text-gray-500 line-clamp-2">{p.content}</div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <button onClick={() => openRenameModal(p.id, p.name)} className="text-blue-500 p-1 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                <button onClick={() => deletePrompt(p.id)} className="text-red-500 p-1 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <InputModal 
+                        isOpen={inputModal.show} 
+                        title={inputModal.title} 
+                        defaultValue={inputModal.defaultValue} 
+                        onConfirm={inputModal.onConfirm} 
+                        onCancel={() => setInputModal(prev => ({ ...prev, show: false }))} 
+                    />
+                </div>
+            );
+        };
+
+        const SettingsPanel = ({ settings, setSettings, customRatio }) => {
+            const ratios = ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"];
+            const displayRatios = customRatio ? [...ratios, "PIC"] : ratios;
+            return (
+                <div className="space-y-4 mb-4 flex-shrink-0">
+                    <div className="flex gap-2">
+                        {['2K', '4K'].map(res => (
+                            <button key={res} onClick={() => setSettings({...settings, size: res})} className={`option-btn flex-1 py-2 font-bold border-2 border-black rounded-lg ${settings.size === res ? 'bg-blue-300' : 'bg-white'}`}>{res}</button>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                        {displayRatios.map(r => (
+                            <button key={r} onClick={() => setSettings({...settings, ratio: r})} className={`option-btn py-1 text-sm font-bold border-2 border-black rounded-lg ${settings.ratio === r ? 'bg-pink-300' : 'bg-white'}`}>{r}</button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const Header = ({ onSettings }) => (
+            <div className="flex-none flex items-center justify-between p-4 bg-white border-b-4 border-black z-20 relative">
+                <div className="flex items-center gap-2"><div className="w-10 h-10 bg-yellow-400 rounded-lg border-2 border-black flex items-center justify-center"><Wand2 size={24} color="black" /></div><h1 className="text-2xl font-black tracking-tighter">K-painter PRO</h1></div>
+                <div className="flex gap-2"><button onClick={onSettings} className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"><Settings size={20} /></button><div className="px-2 py-1 bg-green-400 border-2 border-black rounded-full text-xs font-bold flex items-center">ONLINE</div></div>
+            </div>
+        );
+        const SettingsModal = ({ isOpen, onClose, config, setConfig }) => {
+            const [tempConfig, setTempConfig] = useState(config);
+            useEffect(() => { if(isOpen) setTempConfig(config); }, [isOpen, config]);
+            const handleChange = (key, value) => { setTempConfig(prev => ({...prev, [key]: value})); };
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                      <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in flex flex-col max-h-[80vh]">
+                        <div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="text-lg font-black">全局设置</h3><button onClick={onClose}><X size={20} /></button></div>
+                        <div className="space-y-3 overflow-y-auto flex-1 pr-2 no-scrollbar">
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">API Key</label><input type="text" value={tempConfig.apiKey} onChange={(e) => handleChange('apiKey', e.target.value)} className="cartoon-input w-full text-sm py-1" /></div>
+                            
+                            {/* Translation Settings */}
+                            <div className="border-t-2 border-dashed border-gray-300 my-2 pt-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-xs font-black text-gray-700 flex items-center gap-1"><Languages size={14}/> 提示词自动翻译 (中文->英文)</h4>
+                                    <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                        <input type="checkbox" name="toggle" id="toggle" className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300" checked={tempConfig.enableTranslate} onChange={(e) => handleChange('enableTranslate', e.target.checked)}/>
+                                        <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer border border-gray-300 ${tempConfig.enableTranslate ? 'bg-green-400' : 'bg-gray-300'}`}></label>
+                                    </div>
+                                </div>
+                                {tempConfig.enableTranslate && (
+                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500">翻译系统提示词 (System Prompt)</label><textarea value={tempConfig.translatePrompt} onChange={(e) => handleChange('translatePrompt', e.target.value)} className="cartoon-input w-full text-xs py-1 h-16" /></div>
+                                )}
+                            </div>
+
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘分组数量</label><input type="number" min="1" max="10" value={tempConfig.inpaintBatchSize} onChange={(e) => handleChange('inpaintBatchSize', parseInt(e.target.value) || 3)} className="cartoon-input w-full text-sm py-1" /></div>
+                            <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">提交接口 URL</label><input type="text" value={tempConfig.submitUrl} onChange={(e) => handleChange('submitUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">结果接口 URL</label><input type="text" value={tempConfig.resultUrl} onChange={(e) => handleChange('resultUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
+                            <div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-xs font-bold text-gray-500">绘图模型 ID</label><input type="text" value={tempConfig.drawModel} onChange={(e) => handleChange('drawModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 ID</label><input type="text" value={tempConfig.visionModel} onChange={(e) => handleChange('visionModel', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉模型 URL</label><input type="text" value={tempConfig.visionUrl} onChange={(e) => handleChange('visionUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">视觉识别提示词 P</label><textarea value={tempConfig.visionPrompt} onChange={(e) => handleChange('visionPrompt', e.target.value)} className="cartoon-input w-full text-xs py-1 h-16" /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500">局部重绘提示词模板</label><input type="text" value={tempConfig.inpaintPrompt} onChange={(e) => handleChange('inpaintPrompt', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div>
+                            <div className="border-t-2 border-dashed border-gray-300 my-2 pt-2"><h4 className="text-xs font-black mb-2 text-gray-700">七牛云配置</h4><div className="grid grid-cols-2 gap-2 mb-2"><input placeholder="Access Key" type="text" value={tempConfig.qiniuAk} onChange={(e) => handleChange('qiniuAk', e.target.value)} className="cartoon-input w-full text-xs py-1" /><input placeholder="Secret Key" type="password" value={tempConfig.qiniuSk} onChange={(e) => handleChange('qiniuSk', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="grid grid-cols-2 gap-2"><input placeholder="Bucket Name" type="text" value={tempConfig.qiniuBucket} onChange={(e) => handleChange('qiniuBucket', e.target.value)} className="cartoon-input w-full text-xs py-1" /><input placeholder="Domain" type="text" value={tempConfig.qiniuDomain} onChange={(e) => handleChange('qiniuDomain', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div><div className="space-y-1 mt-2"><label className="text-xs font-bold text-gray-500">七牛云上传地址</label><input type="text" value={tempConfig.qiniuUploadUrl} onChange={(e) => handleChange('qiniuUploadUrl', e.target.value)} className="cartoon-input w-full text-xs py-1" /></div></div>
+                        </div>
+                        <button onClick={() => { setConfig(tempConfig); onClose(); }} className="cartoon-btn w-full py-3 mt-2 flex-shrink-0">保存配置</button>
+                     </div>
+                </div>
+            )
+        }
+        const TabBar = ({ activeTab, setTab }) => {
+            const tabs = [ { id: 'txt2img', icon: Wand2, label: '文生图' }, { id: 'img2img', icon: ImageIcon, label: '图生图' }, { id: 'supertask', icon: Zap, label: '超级任务' }, { id: 'inpaint', icon: Layers, label: '重绘' }, { id: 'history', icon: History, label: '历史' }, ];
+            return (<div className="absolute bottom-0 left-0 right-0 bg-white border-t-4 border-black p-2 pb-6 flex justify-around items-end z-50 safe-area-bottom h-[90px]">{tabs.map(tab => { const isActive = activeTab === tab.id; return (<button key={tab.id} onClick={() => setTab(tab.id)} className={`flex flex-col items-center gap-1 transition-all h-full justify-center`}><div className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center ${isActive ? (tab.id === 'supertask' ? 'bg-red-500 shadow-[2px_2px_0px_0px_#000]' : 'bg-yellow-400 shadow-[2px_2px_0px_#000]') : 'bg-gray-100'}`}><tab.icon size={24} color={isActive && tab.id === 'supertask' ? 'white' : 'black'} fill={tab.id === 'supertask' ? 'currentColor' : 'none'} /></div><span className="text-xs font-bold">{tab.label}</span></button>) })}</div>);
+        };
+
+        // --- SuperTaskMode ---
+        const SuperTaskMode = ({ addToHistory, updateHistory, config, showToast, state, setState }) => {
+            const { globalRefs, subTasks, settings } = state;
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [showSeqModal, setShowSeqModal] = useState(false);
+            const [savedSequences, setSavedSequences] = useState([]);
+            
+            // Loop Mode State
+            const [loopMode, setLoopMode] = useState(false);
+            const [batchImages, setBatchImages] = useState([]);
+            const [targetRefId, setTargetRefId] = useState(1);
+
+            // Input Modal States
+            const [inputModal, setInputModal] = useState({ show: false, title: '', defaultValue: '', onConfirm: null });
+
+            useEffect(() => {
+                const loaded = localStorage.getItem('kpainter_sequences');
+                if (loaded) setSavedSequences(JSON.parse(loaded));
+            }, []);
+
+            const setGlobalRefs = (newRefs) => setState(prev => ({ ...prev, globalRefs: newRefs }));
+            const setSubTasks = (newTasks) => setState(prev => ({ ...prev, subTasks: newTasks }));
+            const setSettings = (newSettings) => setState(prev => ({ ...prev, settings: { ...prev.settings, ...newSettings } }));
+
+            // Save/Load Logic
+            const openSaveSequenceModal = () => {
+                if (subTasks.length === 0) return showToast("当前没有任务序列可保存", "error");
+                setInputModal({
+                    show: true,
+                    title: "保存任务序列",
+                    defaultValue: "",
+                    onConfirm: (name) => {
+                        if(!name) return;
+                        saveSequence(name);
+                        setInputModal(prev => ({...prev, show: false}));
+                    }
+                });
+            };
+
+            const saveSequence = async (name) => {
+                try {
+                    // Process subtasks to persist images
+                    const persistedSubTasks = await Promise.all(subTasks.map(async (task) => {
+                        const persistedLocalRefs = await Promise.all(task.localRefs.map(async (ref) => {
+                            let base64 = "";
+                            if (ref.file) {
+                                base64 = await blobToBase64(ref.file);
+                            } else if (ref.preview && ref.preview.startsWith('data:')) {
+                                base64 = ref.preview;
+                            }
+                            return { ...ref, preview: base64, file: null }; 
+                        }));
+                        return { ...task, localRefs: persistedLocalRefs };
+                    }));
+
+                    const newSeq = { id: Date.now(), name, subTasks: persistedSubTasks, settings };
+                    const newSequences = [newSeq, ...savedSequences].slice(0, 10);
+                    
+                    localStorage.setItem('kpainter_sequences', JSON.stringify(newSequences));
+                    setSavedSequences(newSequences);
+                    showToast("序列任务保存成功");
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        showToast("保存失败：图片太大，超过本地存储限制", "error");
+                    } else {
+                        showToast("保存失败：" + e.message, "error");
+                    }
+                }
+            };
+
+            const loadSequence = (seq) => {
+                try {
+                    // Restore images from base64 to File objects
+                    const restoredSubTasks = seq.subTasks.map(task => ({
+                        ...task,
+                        localRefs: task.localRefs.map(ref => {
+                            if (ref.preview && ref.preview.startsWith('data:')) {
+                                const filename = "restored_image.png";
+                                const file = dataURLtoFile(ref.preview, filename);
+                                return { ...ref, file };
+                            }
+                            return ref;
+                        })
+                    }));
+
+                    setSubTasks(restoredSubTasks);
+                    setSettings(seq.settings);
+                    setShowSeqModal(false);
+                    showToast(`序列 "${seq.name}" 已加载`);
+                } catch (e) {
+                    console.error("Load sequence failed", e);
+                    showToast("序列加载失败，数据可能已损坏", "error");
+                }
+            };
+
+            const deleteSequence = (id) => {
+                const newSeqs = savedSequences.filter(s => s.id !== id);
+                setSavedSequences(newSeqs);
+                localStorage.setItem('kpainter_sequences', JSON.stringify(newSeqs));
+            };
+
+            const openRenameSequenceModal = (id, oldName) => {
+                setInputModal({
+                    show: true,
+                    title: "重命名序列",
+                    defaultValue: oldName,
+                    onConfirm: (newName) => {
+                        if (!newName) return;
+                        const newSeqs = savedSequences.map(s => s.id === id ? { ...s, name: newName } : s);
+                        setSavedSequences(newSeqs);
+                        localStorage.setItem('kpainter_sequences', JSON.stringify(newSeqs));
+                        setInputModal(prev => ({...prev, show: false}));
+                    }
+                });
+            };
+
+            // 1. One-click Reset
+            const handleResetSuperTask = () => {
+                setGlobalRefs([]);
+                setSubTasks([{ id: 1, prompt: '', localRefs: [] }]);
+                setSettings({ size: '2K' });
+                setLoopMode(false);
+                setBatchImages([]);
+                showToast("超级任务已重置");
+            };
+
+            const handleGlobalRefUpload = async (e) => {
+                const files = Array.from(e.target.files);
+                const newRefs = await Promise.all(files.map(file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve({ id: globalRefs.length + 1 + files.indexOf(file), preview: e.target.result, file });
+                        reader.readAsDataURL(file);
+                    });
+                }));
+                const maxId = globalRefs.length > 0 ? Math.max(...globalRefs.map(r => r.id)) : 0;
+                const labelledRefs = newRefs.map((ref, idx) => ({ ...ref, id: maxId + 1 + idx }));
+                setGlobalRefs([...globalRefs, ...labelledRefs]);
+            };
+
+            const handleBatchImagesUpload = async (e) => {
+                const files = Array.from(e.target.files);
+                const newImgs = await Promise.all(files.map(file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve({ preview: e.target.result, file });
+                        reader.readAsDataURL(file);
+                    });
+                }));
+                setBatchImages([...batchImages, ...newImgs]);
+            };
+
+            const removeGlobalRef = (id) => { setGlobalRefs(globalRefs.filter(r => r.id !== id)); };
+            const addSubTask = () => { setSubTasks([...subTasks, { id: subTasks.length + 1, prompt: '', localRefs: [] }]); };
+            const removeSubTask = (id) => { setSubTasks(subTasks.filter(t => t.id !== id)); };
+            const updateSubTaskPrompt = (id, text) => { setSubTasks(subTasks.map(t => t.id === id ? { ...t, prompt: text } : t)); };
+            const addTagToPrompt = (id, tag) => { setSubTasks(subTasks.map(t => t.id === id ? { ...t, prompt: t.prompt + tag } : t)); };
+            const handleSubTaskRefUpload = async (e, taskId) => {
+                const files = Array.from(e.target.files);
+                 const newRefs = await Promise.all(files.map(file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve({ preview: e.target.result, file });
+                        reader.readAsDataURL(file);
+                    });
+                }));
+                setSubTasks(subTasks.map(t => t.id === taskId ? { ...t, localRefs: [...t.localRefs, ...newRefs] } : t));
+            };
+
+            // 安全获取图片宽高比，防止Hang
+            const safeGetAspectRatio = (url) => {
+                return new Promise((resolve) => {
+                    if (!url) { resolve("1:1"); return; }
+                    const img = new Image();
+                    let done = false;
+                    const finish = (w, h) => {
+                        if (done) return;
+                        done = true;
+                        if (w && h) resolve(`${w}:${h}`);
+                        else resolve("1:1"); // Fallback
+                    };
+                    
+                    img.onload = () => finish(img.width, img.height);
+                    img.onerror = () => {
+                        console.warn(`Failed to load image for aspect ratio: ${url}`);
+                        finish(null, null);
+                    };
+                    
+                    img.src = url;
+                    
+                    // 3s Timeout safety
+                    setTimeout(() => {
+                        if (!done) {
+                            console.warn(`Timeout loading image for aspect ratio: ${url}`);
+                            finish(null, null);
+                        }
+                    }, 3000);
+                });
+            };
+
+            const executeSuperTask = async () => {
+                 const missingTags = [];
+                 subTasks.forEach(task => {
+                    const matches = task.prompt.match(/\[pic(\d+)\]/g);
+                    if (matches) {
+                        matches.forEach(tag => {
+                            const id = parseInt(tag.match(/\d+/)[0]);
+                            if (!globalRefs.find(r => r.id === id)) {
+                                missingTags.push(`子任务 #${task.id} 引用了无效标签 [pic${id}]`);
+                            }
+                        });
+                    }
+                 });
+
+                 if (missingTags.length > 0) return alert(`提交失败，存在无效引用：\n${missingTags.join('\n')}`);
+                 if (subTasks.length === 0) return showToast("请添加至少一个子任务");
+                 
+                 // Loop Mode Validation
+                 if (loopMode) {
+                     if (batchImages.length === 0) return showToast("循环模式下必须上传循环图 (图片A)", "error");
+                     if (!globalRefs.find(r => r.id === targetRefId)) return showToast(`未找到目标全局参考图 pic${targetRefId}`, "error");
+                 }
+
+                 setIsProcessing(true);
+
+                 const runSequence = async (currentGlobalRefUrls, currentGlobalRefPreviews, sequenceIndex = 0) => {
+                       const taskStatusMap = {}; 
+                       const historyIds = [];
+                       
+                       // Initialize history items for THIS sequence
+                       subTasks.forEach(task => {
+                           const histId = Date.now() + task.id + (sequenceIndex * 1000); // Unique IDs per sequence loop
+                           taskStatusMap[task.id] = { status: 'pending', resultUrl: null, historyId: histId };
+                           let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
+                           // Initial Add. IMPORTANT: Store settings here!
+                           addToHistory({ 
+                               id: histId, 
+                               type: 'img2img', 
+                               url: '', 
+                               prompt: `${loopLabel}[子任务 ${task.id}] 等待依赖...`, 
+                               date: new Date(), 
+                               status: 'analyzing', 
+                               progress: 0, 
+                               isMock: false, 
+                               extraData: { refs: [] }, 
+                               settings: settings // PERSIST SETTINGS (Default)
+                           });
+                           historyIds.push(histId);
+                       });
+
+                       const checkAndRun = async () => {
+                           let allFinished = true;
+                           for (const task of subTasks) {
+                               const statusObj = taskStatusMap[task.id];
+                               if (statusObj.status === 'success' || statusObj.status === 'failed') continue;
+                               allFinished = false;
+
+                               if (statusObj.status === 'pending') {
+                                   // Check dependencies
+                                   const dependencies = task.prompt.match(/\[result(\d+)\]/g);
+                                   let canRun = true;
+                                   if (dependencies) {
+                                       for (const dep of dependencies) {
+                                           const depId = parseInt(dep.match(/\d+/)[0]);
+                                           if (!taskStatusMap[depId] || !taskStatusMap[depId].resultUrl) {
+                                               canRun = false;
+                                               break;
+                                           }
+                                       }
+                                   }
+
+                                   if (canRun) {
+                                       statusObj.status = 'running';
+                                       let loopLabel = loopMode ? `[循环${sequenceIndex + 1}] ` : "";
+                                       updateHistory(statusObj.historyId, { prompt: `${loopLabel}[子任务 ${task.id}] 正在生成...`, status: 'generating' });
+                                       runSubTask(task, statusObj).then(() => { checkAndRun(); });
+                                   }
+                               }
+                           }
+                           // Sequence finished
+                           if (allFinished && !loopMode) { 
+                               showToast("超级任务全部完成！"); 
+                           }
+                       };
+
+                       const runSubTask = async (task, statusObj) => {
+                           try {
+                               const urls = [];
+                               const previewUrls = []; // Separate array to store local previews for better aspect ratio calculation
+                               let finalPrompt = task.prompt;
+                               const tagToIndexMap = {};
+                               let firstRefRatio = null; 
+
+                               const addUrlAndPreview = (url, preview) => { 
+                                   urls.push(url); 
+                                   previewUrls.push(preview || url); 
+                                   return urls.length; 
+                               };
+
+                               // 2. Robust Logic: Extract tags, resolve URLs, push to ordered array, map to prompt
+                               const tagRegex = /\[(pic|result)(\d+)\]/g;
+                               const tagsInPrompt = [];
+                               let match;
+                               while ((match = tagRegex.exec(task.prompt)) !== null) {
+                                   if (!tagsInPrompt.includes(match[0])) {
+                                       tagsInPrompt.push(match[0]);
+                                   }
+                               }
+                               
+                               // Process tags
+                               for (const tag of tagsInPrompt) {
+                                   if (!tagToIndexMap[tag]) {
+                                       const type = tag.startsWith('[pic') ? 'pic' : 'result';
+                                       const id = parseInt(tag.match(/\d+/)[0]);
+                                       
+                                       let url = null;
+                                       let previewUrl = null;
+
+                                       if (type === 'pic') {
+                                           url = currentGlobalRefUrls[`pic${id}`];
+                                           previewUrl = currentGlobalRefPreviews[`pic${id}`];
+                                       } else if (type === 'result') {
+                                           url = taskStatusMap[id]?.resultUrl;
+                                           previewUrl = url; 
+                                       }
+
+                                       if (url) {
+                                           const isFirst = urls.length === 0;
+                                           const idx = addUrlAndPreview(url, previewUrl);
+                                           tagToIndexMap[tag] = idx; // [pic1] -> 1 (means 图1)
+
+                                           // 修复：如果第一张参考图是 result，直接继承上游任务的宽高比，防止加载失败导致丢失比例
+                                           if (isFirst && type === 'result' && taskStatusMap[id]?.generatedRatio) {
+                                               firstRefRatio = taskStatusMap[id].generatedRatio;
+                                           }
+                                       }
+                                   }
+                               }
+
+                               // Replace tags in prompt with "[picN]"
+                               finalPrompt = finalPrompt.replace(tagRegex, (m) => {
+                                   const idx = tagToIndexMap[m];
+                                   return idx ? `[pic${idx}]` : m;
+                               });
+
+                               // Append local refs (if any) - mapped to next available indices
+                               // Strict sequential upload for subtask local refs
+                               for (const localRef of task.localRefs) {
+                                   const url = await uploadImageToQiniu(localRef.file, config);
+                                   addUrlAndPreview(url, localRef.preview);
+                               }
+
+                               // 3. FIX: Safe aspect ratio calculation & Reversal Logic
+                               let aspectRatio = "1:1";
+                               
+                               // User Requirement: "Generate AR consistent with the last reference image" (in the submitted sequence).
+                               // The submitted sequence will be reversed.
+                               // Original: [pic1 (base), pic2, pic3]
+                               // Reversed: [pic3, pic2, pic1 (base)]
+                               // Last image in reversed is pic1 (base).
+                               // pic1 is at index 0 of original 'previewUrls'.
+                               if (previewUrls.length > 0) {
+                                   aspectRatio = await safeGetAspectRatio(previewUrls[0]);
+                               } else if (firstRefRatio) {
+                                   aspectRatio = firstRefRatio;
+                               }
+
+                               // Save calculated ratio for downstream tasks
+                               statusObj.generatedRatio = aspectRatio;
+
+                               // Prompt Remapping: Invert [picN] indices because we reverse the array
+                               const totalRefs = urls.length;
+                               if (totalRefs > 0) {
+                                   finalPrompt = finalPrompt.replace(/\[pic(\d+)\]/g, (match, num) => {
+                                       const n = parseInt(num);
+                                       if (n > 0 && n <= totalRefs) {
+                                           const newN = totalRefs - n + 1;
+                                           return `[pic${newN}]`;
+                                       }
+                                       return match;
+                                   });
+                               }
+
+                               // Translate Prompt if enabled
+                               finalPrompt = await translateText(finalPrompt, config);
+
+                               // REVERSE URLs order for submission as requested (MOVED UP)
+                               const finalUrlsForSubmission = [...urls].reverse();
+
+                               // IMPORTANT FIX: Update history with resolved URLs and prompt BEFORE submission
+                               // We save the REVERSED urls to history so that Rerun/Copy/View Params show the correct order that matches the reversed prompt
+                               // Also save the calculated ratio to settings so Rerun/Copy works correctly
+                               const currentTaskSettings = { ...settings, ratio: aspectRatio };
+                               updateHistory(statusObj.historyId, { 
+                                   prompt: finalPrompt, 
+                                   extraData: { refs: finalUrlsForSubmission }, // Save REVERSED urls
+                                   settings: currentTaskSettings 
+                               });
+                               
+                               const { url, taskId } = await runTaskWithRetry(
+                                   () => submitDrawTask(finalPrompt, aspectRatio, settings.size, finalUrlsForSubmission, config),
+                                   (id) => pollTaskResult(id, (p) => updateHistory(statusObj.historyId, { progress: p }), config),
+                                   10,
+                                   (attempt) => updateHistory(statusObj.historyId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                               );
+                               
+                               const isMock = taskId.toString().startsWith("mock-");
+                               statusObj.resultUrl = url;
+                               statusObj.status = 'success';
+                               updateHistory(statusObj.historyId, { url, status: 'success', isMock, prompt: finalPrompt });
+
+                           } catch (e) {
+                               console.error(e);
+                               statusObj.status = 'failed';
+                               updateHistory(statusObj.historyId, { status: 'failed', prompt: `失败: ${e.message}` });
+                           }
+                       };
+                       
+                       await checkAndRun(); // Start the sequence
+                 };
+
+                 (async () => {
+                       try {
+                         const globalRefUrls = {};
+                         const globalRefPreviews = {}; 
+
+                         // 1. Force upload all global refs first (Base set)
+                         // STRICT SEQUENTIAL UPLOAD
+                         for (const ref of globalRefs) {
+                             const url = await uploadImageToQiniu(ref.file, config);
+                             if (url.startsWith('blob:')) alert(`警告: pic${ref.id} 上传失败，使用Blob URL。`);
+                             globalRefUrls[`pic${ref.id}`] = url;
+                             globalRefPreviews[`pic${ref.id}`] = ref.preview;
+                         }
+
+                         // RELEASE BUTTON HERE: After uploads and setup are done, release the button.
+                         setIsProcessing(false); 
+                         showToast("超级任务后台运行中...");
+
+                         if (loopMode) {
+                             // STRICT SEQUENTIAL LOOP EXECUTION
+                             for (let i = 0; i < batchImages.length; i++) {
+                                 // Upload current batch image
+                                 const batchImgUrl = await uploadImageToQiniu(batchImages[i].file, config);
+                                 
+                                 // Create modified context
+                                 const modifiedUrls = { ...globalRefUrls, [`pic${targetRefId}`]: batchImgUrl };
+                                 const modifiedPreviews = { ...globalRefPreviews, [`pic${targetRefId}`]: batchImages[i].preview };
+                                 
+                                 // Run sequence detached (or await if sequential execution is desired)
+                                 // We await here to prevent overwhelming the server
+                                 await runSequence(modifiedUrls, modifiedPreviews, i);
+                             }
+                             showToast("循环任务全部完成");
+                         } else {
+                             await runSequence(globalRefUrls, globalRefPreviews);
+                         }
+                         
+                       } catch (e) {
+                           console.error(e);
+                           setIsProcessing(false);
+                           showToast("任务启动失败: " + e.message, "error");
+                       }
+                 })();
+            };
+
+            return (
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
+                    <div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-50 overflow-hidden relative">
+                        <div className="flex justify-between items-center mb-2 flex-shrink-0">
+                            <h2 className="text-xl font-black flex items-center gap-2"><Zap size={24} className="text-red-500 fill-current"/> 超级任务</h2>
+                            <div className="flex gap-2 items-center">
+                                {/* 2K/4K Toggle Restored */}
+                                <div className="flex bg-white rounded-lg border-2 border-black overflow-hidden h-8">
+                                    <button onClick={() => setSettings({size: '2K'})} className={`px-2 text-xs font-bold flex items-center ${settings.size === '2K' ? 'bg-yellow-300' : 'bg-white hover:bg-gray-50'}`}>2K</button>
+                                    <div className="w-[2px] bg-black"></div>
+                                    <button onClick={() => setSettings({size: '4K'})} className={`px-2 text-xs font-bold flex items-center ${settings.size === '4K' ? 'bg-yellow-300' : 'bg-white hover:bg-gray-50'}`}>4K</button>
+                                </div>
+
+                                <button onClick={handleResetSuperTask} className="w-8 h-8 bg-white border-2 border-black rounded-full active:scale-95 transition-transform flex items-center justify-center" title="重置"><RotateCcw size={14} /></button>
+                                <button onClick={openSaveSequenceModal} className="w-8 h-8 bg-white border-2 border-black rounded-full active:scale-95 transition-transform flex items-center justify-center" title="保存序列"><Save size={14} /></button>
+                                <button onClick={() => setShowSeqModal(true)} className="w-8 h-8 bg-white border-2 border-black rounded-full active:scale-95 transition-transform flex items-center justify-center" title="加载序列"><List size={14} /></button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col space-y-4">
+                            {/* Global Refs */}
+                            <div className="bg-white p-2 border-2 border-black rounded-lg">
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="text-xs font-bold">全局参考图 (自动标记)</div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-red-500">循环替换模式</span>
+                                        <button onClick={() => setLoopMode(!loopMode)} className={`w-8 h-4 rounded-full border border-black flex items-center px-0.5 transition-colors ${loopMode ? 'bg-green-400' : 'bg-gray-200'}`}>
+                                            <div className={`w-3 h-3 bg-white border border-black rounded-full transform transition-transform ${loopMode ? 'translate-x-4' : ''}`}></div>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {loopMode && (
+                                    <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                                            <div className="font-bold mb-1 flex items-center gap-1"><Repeat2 size={12}/> 循环替换配置</div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span>目标位置:</span>
+                                                <select value={targetRefId} onChange={(e) => setTargetRefId(parseInt(e.target.value))} className="border border-black rounded bg-white px-1">
+                                                    {globalRefs.length > 0 ? globalRefs.map(r => <option key={r.id} value={r.id}>pic{r.id}</option>) : <option value={1}>pic1</option>}
+                                                </select>
+                                                <span className="text-gray-500">将在此位置依次填入下方图片</span>
+                                            </div>
+                                            {/* Updated Grid for Loop Images */}
+                                            <div className="grid grid-cols-5 gap-2 py-1">
+                                                {batchImages.map((img, i) => (
+                                                    <div key={i} className="aspect-square border border-black rounded overflow-hidden bg-white">
+                                                        <img src={img.preview} className="w-full h-full object-cover"/>
+                                                    </div>
+                                                ))}
+                                                <label className="aspect-square border border-dashed border-black rounded flex items-center justify-center bg-white cursor-pointer">
+                                                    <Plus size={12}/><input type="file" multiple className="hidden" onChange={handleBatchImagesUpload}/>
+                                                </label>
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 mt-1">上传几张图就执行几轮任务</div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-5 gap-2">
+                                    {globalRefs.map(ref => (
+                                        <div key={ref.id} className="relative aspect-square border border-black rounded overflow-hidden group">
+                                            <img src={ref.preview} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-0 right-0 bg-black text-white text-[9px] px-1">pic{ref.id}</div>
+                                            <button onClick={() => removeGlobalRef(ref.id)} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <X size={10}/>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <label className="aspect-square border-2 border-dashed border-black rounded flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                        <Plus size={20} />
+                                        <input type="file" multiple className="hidden" onChange={handleGlobalRefUpload} />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Sub Tasks */}
+                            <div className="space-y-2">
+                                {subTasks.map((task, idx) => (
+                                    <div key={task.id} className="bg-white p-2 border-2 border-black rounded-lg relative">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-xs font-black bg-black text-white px-2 rounded">子任务 #{task.id} (result{task.id})</span>
+                                            <button onClick={() => removeSubTask(task.id)} className="text-red-500"><X size={16} /></button>
+                                        </div>
+                                        <textarea 
+                                            className="w-full text-xs border border-black rounded p-1 mb-1 h-16 resize-none bg-gray-50" 
+                                            placeholder="输入指令，可引用 [pic1] 或 [result1]..."
+                                            value={task.prompt}
+                                            onChange={(e) => updateSubTaskPrompt(task.id, e.target.value)}
+                                        />
+                                        
+                                        {/* Tag Chips */}
+                                        <div className="flex flex-wrap gap-1 mb-2">
+                                            {globalRefs.map(ref => (
+                                                <span key={`p${ref.id}`} className="tag-chip tag-pic" onClick={() => addTagToPrompt(task.id, `[pic${ref.id}]`)}>pic{ref.id}</span>
+                                            ))}
+                                            {subTasks.slice(0, idx).map(prevTask => (
+                                                <span key={`r${prevTask.id}`} className="tag-chip tag-result" onClick={() => addTagToPrompt(task.id, `[result${prevTask.id}]`)}>result{prevTask.id}</span>
+                                            ))}
+                                        </div>
+
+                                        {/* Local Refs */}
+                                        <div className="flex gap-1 overflow-x-auto items-center">
+                                            {task.localRefs.map((r, i) => (
+                                                <img key={i} src={r.preview} className="w-8 h-8 border border-black rounded object-cover" />
+                                            ))}
+                                            <label className="text-[10px] underline cursor-pointer flex items-center gap-1">
+                                                <Plus size={10} />上传图
+                                                <input type="file" multiple className="hidden" onChange={(e) => handleSubTaskRefUpload(e, task.id)} />
+                                            </label>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={addSubTask} className="w-full py-2 border-2 border-dashed border-black rounded-lg text-xs font-bold flex items-center justify-center gap-1 active:bg-gray-100">
+                                    <Plus size={16} /> 添加子任务
+                                </button>
+                            </div>
+                        </div>
+
+                        <button onClick={executeSuperTask} disabled={isProcessing} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2 ${isProcessing ? 'opacity-50' : ''}`}>
+                            <Play size={20} />
+                            {isProcessing ? '提交中...' : '开始执行'}
+                        </button>
+                    </div>
+                    
+                    {showSeqModal && (
+                        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                            <div className="cartoon-box bg-white w-full max-w-sm p-4 flex flex-col max-h-[70vh] animate-bounce-in">
+                                <div className="flex justify-between items-center mb-2"><h3 className="font-bold">已存任务序列 (最多10组)</h3><button onClick={() => setShowSeqModal(false)}><X size={20}/></button></div>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                                    {savedSequences.length === 0 ? <div className="text-center text-gray-400 text-xs py-4">暂无保存的序列</div> : 
+                                    savedSequences.map((s, i) => (
+                                        <div key={s.id || i} className="flex gap-2 items-center border-b border-gray-100 pb-2">
+                                            <div onClick={() => loadSequence(s)} className="flex-1 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                                <div className="font-bold text-xs">{s.name}</div>
+                                                <div className="text-[10px] text-gray-500">{s.subTasks.length} 个步骤</div>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <button onClick={() => openRenameSequenceModal(s.id, s.name)} className="text-blue-500 p-1 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                <button onClick={() => deleteSequence(s.id)} className="text-red-500 p-1 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Input Modal */}
+                    <InputModal 
+                        isOpen={inputModal.show} 
+                        title={inputModal.title} 
+                        defaultValue={inputModal.defaultValue} 
+                        onConfirm={inputModal.onConfirm} 
+                        onCancel={() => setInputModal(prev => ({ ...prev, show: false }))} 
+                    />
+                </div>
+            )
+        }
+
+        // --- Txt2Img ---
+        const Txt2Img = ({ addToHistory, updateHistory, config, showToast, editingTask, onTaskLoaded }) => {
+            const [prompt, setPrompt] = useState("");
+            const [settings, setSettings] = useState({ size: "2K", ratio: "1:1" });
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            useEffect(() => {
+                if (editingTask && editingTask.type === 'txt2img') {
+                    setPrompt(editingTask.prompt);
+                    if (editingTask.settings) setSettings(editingTask.settings);
+                    onTaskLoaded();
+                }
+            }, [editingTask, onTaskLoaded]);
+
+            const handleReset = () => { setPrompt(""); setSettings({ size: "2K", ratio: "1:1" }); };
+            const handleGenerate = async () => {
+                if (!prompt) return showToast("请输入提示词！", "error");
+                setIsSubmitting(true);
+                const tempId = Date.now();
+                // Store empty refs for consistency
+                addToHistory({ id: tempId, type: 'txt2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, settings, extraData: { refs: [] } });
+                
+                try {
+                    const finalPrompt = await translateText(prompt, config); // Translation Hook
+                    if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
+
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(finalPrompt, settings.ratio, settings.size, [], config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(tempId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                    );
+                    
+                    const isMock = taskId.toString().startsWith("mock-");
+                    setIsSubmitting(false); 
+                    setPrompt(""); 
+                    showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
+                    
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: finalPrompt });
+                } catch (e) { 
+                    setIsSubmitting(false); 
+                    showToast(e.message, "error"); 
+                    updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }); 
+                }
+            };
+            return (<div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-yellow-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">创意工坊 (文生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[120px]" placeholder="输入提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} /><PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_txt2img" /><SettingsPanel settings={settings} setSettings={setSettings} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>);
+        };
+
+        // --- Img2Img ---
+        const Img2Img = ({ addToHistory, updateHistory, config, showToast, editingTask, onTaskLoaded, transferData, onConsumeTransfer }) => {
+            const [refs, setRefs] = useState([]);
+            const [prompt, setPrompt] = useState("");
+            const [settings, setSettings] = useState({ size: "2K", ratio: "1:1" });
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [customPicRatio, setCustomPicRatio] = useState(null); 
+
+            useEffect(() => {
+                if (transferData && transferData.target === 'img2img') {
+                    const newRef = { preview: transferData.payload, file: null, url: transferData.payload };
+                    if (refs.length === 0) {
+                        const img = new Image();
+                        img.onload = () => {
+                            const exactRatio = `${img.width}:${img.height}`;
+                            setCustomPicRatio(exactRatio);
+                            setSettings(s => ({ ...s, ratio: "PIC" })); 
+                            showToast(`已添加参考图，模式：PIC`);
+                        };
+                        img.src = transferData.payload;
+                    }
+                    setRefs(prev => [...prev, newRef]);
+                    onConsumeTransfer();
+                }
+            }, [transferData, refs, onConsumeTransfer]);
+
+            useEffect(() => {
+                if (editingTask && editingTask.type === 'img2img') {
+                    setPrompt(editingTask.prompt);
+                    if (editingTask.extraData && editingTask.extraData.refs) {
+                        const restoredRefs = editingTask.extraData.refs.map(url => ({ preview: url, file: null, url }));
+                        setRefs(restoredRefs);
+                        if (editingTask.settings && editingTask.settings.ratio === "PIC" && restoredRefs.length > 0) {
+                            const img = new Image();
+                            img.onload = () => {
+                                setCustomPicRatio(`${img.width}:${img.height}`);
+                                setSettings({ ...editingTask.settings, ratio: "PIC" }); 
+                            };
+                            img.src = restoredRefs[0].url;
+                        } else if (editingTask.settings) {
+                            setSettings(editingTask.settings);
+                        }
+                    }
+                    onTaskLoaded();
+                }
+            }, [editingTask, onTaskLoaded]);
+
+            const handleFileChange = async (e) => {
+                const files = Array.from(e.target.files);
+                const newRefs = await Promise.all(files.map(file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const img = new Image();
+                            img.onload = () => resolve({ file, preview: e.target.result, width: img.width, height: img.height });
+                            img.src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }));
+                if (newRefs.length > 0 && refs.length === 0) {
+                    const first = newRefs[0];
+                    const exactRatio = `${first.width}:${first.height}`;
+                    setCustomPicRatio(exactRatio);
+                    setSettings(s => ({ ...s, ratio: "PIC" }));
+                    showToast(`已应用第一张图比例 (PIC)`);
+                }
+                setRefs([...refs, ...newRefs]);
+            };
+
+            const removeRef = (index) => {
+                setRefs(prev => {
+                    const next = prev.filter((_, i) => i !== index);
+                    if (next.length === 0) { setCustomPicRatio(null); setSettings(s => ({ ...s, ratio: "1:1" })); }
+                    return next;
+                });
+            };
+            const handleReset = () => { setPrompt(""); setRefs([]); setCustomPicRatio(null); setSettings({ size: "2K", ratio: "1:1" }); };
+            
+            const handleGenerate = async () => {
+                if (refs.length === 0) return showToast("请上传参考图", "error");
+                setIsSubmitting(true);
+                const tempId = Date.now();
+                
+                try {
+                    // STRICT SEQUENTIAL UPLOAD
+                    const uploadedUrls = [];
+                    for (const r of refs) {
+                        const url = r.file ? await uploadImageToQiniu(r.file, config) : (r.url || r.preview);
+                        uploadedUrls.push(url);
+                    }
+
+                    let finalRatio = settings.ratio;
+                    if (settings.ratio === "PIC") finalRatio = customPicRatio || "1:1";
+                    
+                    // IMPORTANT FIX: Save the EXPLICIT ratio into history settings so Rerun/Copy works
+                    const historySettings = { ...settings, ratio: finalRatio };
+
+                    addToHistory({ id: tempId, type: 'img2img', url: '', prompt, date: new Date(), status: 'generating', progress: 0, extraData: { refs: uploadedUrls }, settings: historySettings });
+
+                    const finalPrompt = await translateText(prompt, config); // Translation Hook
+                    if (finalPrompt !== prompt) updateHistory(tempId, { prompt: finalPrompt });
+
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(finalPrompt, finalRatio, settings.size, uploadedUrls, config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(tempId, { prompt: `${finalPrompt} (自动重试 ${attempt}/10)` })
+                    );
+                    
+                    const isMock = taskId.toString().startsWith("mock-");
+                    setIsSubmitting(false); 
+                    setPrompt(""); 
+                    showToast(isMock ? "提交成功 (演示模式)" : "任务已提交后台");
+
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: finalPrompt });
+
+                } catch (e) { 
+                    setIsSubmitting(false); 
+                    showToast(e.message, "error"); 
+                    updateHistory(tempId, { status: 'failed', prompt: `失败: ${e.message}` }); 
+                }
+            };
+            return (
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-blue-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black">灵感重塑 (图生图)</h2><button onClick={handleReset} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+                    <div className="flex gap-2 overflow-x-auto pb-2 mb-2 flex-shrink-0">{refs.map((ref, idx) => (<div key={idx} className="relative w-24 h-24 flex-shrink-0 border-2 border-black rounded-lg overflow-hidden bg-white group"><img src={ref.preview} className="w-full h-full object-cover" /><button onClick={() => removeRef(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 border border-black shadow hover:scale-110 active:scale-90 transition-transform"><X size={12} /></button><div className="absolute bottom-0 right-0 bg-black text-white text-[10px] px-1">{idx+1}</div></div>))}<label className="w-24 h-24 flex-shrink-0 border-2 border-dashed border-black rounded-lg flex flex-col items-center justify-center bg-white cursor-pointer active:bg-gray-200"><Plus size={24} /><span className="text-xs font-bold">添加</span><input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} /></label></div>
+                    <textarea className="cartoon-input w-full flex-1 resize-none mb-2 min-h-[100px]" placeholder="输入补充提示词..." value={prompt} onChange={e => setPrompt(e.target.value)} />
+                    <PromptManager currentPrompt={prompt} setPrompt={setPrompt} showToast={showToast} storageKey="kpainter_prompts_img2img" />
+                    <SettingsPanel settings={settings} setSettings={setSettings} customRatio={customPicRatio} /></div><button onClick={handleGenerate} disabled={isSubmitting} className={`cartoon-btn w-full py-3 text-lg flex items-center justify-center gap-2 mt-2 flex-shrink-0 ${isSubmitting ? 'opacity-50' : ''}`}><Play size={20} /> {isSubmitting ? '提交中...' : '开始执行'}</button></div></div>
+            );
+        };
+
+        // --- InpaintMode ---
+        const InpaintMode = ({ addToHistory, updateHistory, historyItems, config, showToast, transferData, onConsumeTransfer, editingTask, onTaskLoaded }) => {
+            const [baseImage, setBaseImage] = useState(null); 
+            const [points, setPoints] = useState([]);
+            const [activePoint, setActivePoint] = useState(null);
+            const [settings, setSettings] = useState({ size: "2K", ratio: "ORIGINAL" }); 
+
+            // ... (useEffect for restore/transfer same as before) ...
+            useEffect(() => {
+                if (editingTask && editingTask.type === 'inpaint_step' && editingTask.extraData) {
+                    const { baseImageUrl, points: savedPoints, baseImageDims } = editingTask.extraData;
+                    if (baseImageUrl) {
+                        const img = new Image();
+                        img.onload = () => {
+                            setBaseImage({ preview: baseImageUrl, url: baseImageUrl, file: null, width: img.width || 1024, height: img.height || 1024 });
+                            const restoredPoints = (savedPoints || []).map(p => ({ ...p, refImg: p.refImg }));
+                            setPoints(restoredPoints);
+                            showToast("已还原局部重绘任务");
+                        };
+                        img.src = baseImageUrl; 
+                    }
+                    onTaskLoaded();
+                }
+            }, [editingTask, onTaskLoaded]);
+
+            useEffect(() => {
+                if (transferData && transferData.target === 'inpaint') {
+                    const img = new Image();
+                    img.onload = () => { setBaseImage({ preview: transferData.payload, file: null, width: img.width, height: img.height, url: transferData.payload }); setPoints([]); showToast("图片已设为重绘底图"); };
+                    img.src = transferData.payload;
+                    onConsumeTransfer();
+                }
+            }, [transferData, onConsumeTransfer]);
+
+            const handleBaseUpload = (e) => { const file = e.target.files[0]; if(file) { const reader = new FileReader(); reader.onload = (evt) => { const img = new Image(); img.onload = () => { setBaseImage({ preview: evt.target.result, file, width: img.width, height: img.height }); setPoints([]); }; img.src = evt.target.result; }; reader.readAsDataURL(file); } };
+            const handleImageClick = (e) => { if (!baseImage) return; const rect = e.target.getBoundingClientRect(); const x = (e.clientX - rect.left) / rect.width; const y = (e.clientY - rect.top) / rect.height; const newId = points.length + 1; const newPoint = { id: newId, x, y, mode: 'text', refImg: null, desc: '', generatedPrompt: '', isNew: true }; setPoints([...points, newPoint]); setActivePoint(newPoint); };
+            const handlePointClick = (e, p) => { e.stopPropagation(); setActivePoint(p); };
+            const handleDeletePoint = () => { setPoints(prev => prev.filter(p => p.id !== activePoint.id)); setActivePoint(null); };
+            const confirmPointConfig = () => { setPoints(prev => prev.map(p => p.id === activePoint.id ? { ...activePoint, isNew: false } : p)); setActivePoint(null); };
+            const handleCancel = () => { if (activePoint && activePoint.isNew) { setPoints(prev => prev.filter(p => p.id !== activePoint.id)); } setActivePoint(null); };
+
+            const startBatchProcess = async () => {
+                if (points.length === 0) return;
+                
+                const processingPoints = JSON.parse(JSON.stringify(points)); 
+                const processingBaseImage = { ...baseImage }; 
+                const processingSettings = { ...settings };
+
+                // Clear local state immediately for UX
+                setBaseImage(null);
+                setPoints([]);
+                setActivePoint(null);
+                showToast("任务已提交后台处理");
+
+                (async () => {
+                    try {
+                        let currentBaseImgUrl = await uploadImageToQiniu(processingBaseImage.file || processingBaseImage.url, config); 
+                        const baseRatio = `${processingBaseImage.width}:${processingBaseImage.height}`;
+
+                        // 2. 使用配置的分组数量
+                        const batchSize = config.inpaintBatchSize || 3;
+                        const groups = [];
+                        for (let i = 0; i < processingPoints.length; i += batchSize) { 
+                            groups.push(processingPoints.slice(i, i + batchSize)); 
+                        }
+
+                        const historyIds = [];
+                        groups.forEach((group, i) => {
+                            const tempId = Date.now() + i;
+                            historyIds.push(tempId);
+                            // IMPORTANT FIX: Save processingSettings to history
+                            addToHistory({ 
+                                id: tempId, 
+                                type: 'inpaint_step', 
+                                url: '', 
+                                prompt: '正在进行视觉识别...', 
+                                date: new Date(), 
+                                isMock: false, 
+                                status: 'analyzing', 
+                                progress: 0, 
+                                extraData: { baseImageUrl: currentBaseImgUrl, baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height }, points: [], refs: [] },
+                                settings: processingSettings // PERSIST SETTINGS
+                            });
+                        });
+
+                        historyIds.forEach(id => updateHistory(id, { prompt: "视觉模型正在并行识别中..." }));
+
+                        const analyzedPoints = await Promise.all(processingPoints.map(async (point) => {
+                            let promptX = "";
+                            let visionAnswer = "";
+
+                            if (config.visionPrompt && !point.desc.includes("不识别") && point.mode === 'text') {
+                                let promptP = config.visionPrompt.replace('[[坐标AAA]]', `(${point.x.toFixed(2)},${point.y.toFixed(2)})`);
+                                visionAnswer = await callVisionModel(currentBaseImgUrl, promptP, config);
+                            } else {
+                                visionAnswer = "指定区域"; 
+                            }
+
+                            let instruction = "";
+                            // 3. Prompt Construction for Add/Replace
+                            if (point.mode === 'add') {
+                                instruction = "添加参考图PLACEHOLDER";
+                            } else if (point.mode === 'replace') {
+                                instruction = "替换为参考图PLACEHOLDER";
+                            } else {
+                                instruction = point.desc;
+                            }
+
+                            promptX = config.inpaintPrompt.replace('[[答案A]]', visionAnswer).replace('任务指令X', instruction);
+                            
+                            return { ...point, generatedPrompt: promptX };
+                        }));
+
+                        const analyzedGroups = [];
+                        for (let i = 0; i < analyzedPoints.length; i += batchSize) {
+                            analyzedGroups.push(analyzedPoints.slice(i, i + batchSize));
+                        }
+
+                        for (let i = 0; i < analyzedGroups.length; i++) {
+                            const group = analyzedGroups[i];
+                            const tempId = historyIds[i];
+
+                            // Collect ref images for this group
+                            const groupRefs = [currentBaseImgUrl];
+                            let refCounter = 2; // 修复：参考图1是底图，所以新增的参考图从2开始计数
+                            
+                            // *** CRITICAL FIX: STRICT SEQUENTIAL PROCESSING ***
+                            const finalGroupPoints = [];
+                            
+                            for (const p of group) {
+                                let finalPrompt = p.generatedPrompt;
+                                let refUrl = null;
+
+                                if ((p.mode === 'add' || p.mode === 'replace') && p.refImg) {
+                                    refUrl = await uploadImageToQiniu(p.refImg, config);
+                                    groupRefs.push(refUrl);
+                                    // Replace PLACEHOLDER with counter sequentially
+                                    finalPrompt = finalPrompt.replace("PLACEHOLDER", refCounter++);
+                                }
+                                finalGroupPoints.push({ ...p, generatedPrompt: finalPrompt, refImg: refUrl });
+                            }
+
+                            // IMPORTANT FIX: Save refs in history so rerun works
+                            updateHistory(tempId, {
+                                extraData: {
+                                    baseImageUrl: currentBaseImgUrl,
+                                    baseImageDims: { width: processingBaseImage.width, height: processingBaseImage.height },
+                                    points: finalGroupPoints,
+                                    refs: groupRefs 
+                                }
+                            });
+
+                            let groupPrompts = finalGroupPoints.map(p => p.generatedPrompt).join("; ");
+                            
+                            // Translation Hook for Batch
+                            groupPrompts = await translateText(groupPrompts, config);
+
+                            updateHistory(tempId, { prompt: groupPrompts, status: 'generating' });
+
+                            try {
+                                const { url, taskId } = await runTaskWithRetry(
+                                    () => submitDrawTask(groupPrompts, baseRatio, processingSettings.size, groupRefs, config),
+                                    (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                                    10,
+                                    (attempt) => updateHistory(tempId, { prompt: `${groupPrompts} (自动重试 ${attempt}/10)` })
+                                );
+                                
+                                const isMock = taskId.toString().startsWith("mock-");
+                                currentBaseImgUrl = url; 
+                                updateHistory(tempId, { url, status: 'success', isMock, prompt: groupPrompts });
+
+                                if (isMock && i === 0) showToast("提示：已自动切换为演示模式");
+                            } catch (e) { 
+                                showToast(`第 ${i+1} 组失败: ${e.message}`, "error"); 
+                                updateHistory(tempId, { status: 'failed', prompt: e.message });
+                                break; 
+                            }
+                        }
+                        showToast("全流程处理完成！");
+                    } catch (error) {
+                        console.error(error);
+                        showToast("后台处理出错", "error");
+                    }
+                })();
+            };
+
+            return (
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in"><div className="cartoon-box flex-1 flex flex-col p-4 bg-green-100 overflow-hidden relative"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h2 className="text-xl font-black flex items-center gap-2"><span>精准重绘</span><span className="text-sm bg-black text-white px-2 rounded-full">{points.length}</span></h2><div className="flex gap-2"><div className="flex bg-white rounded-lg border-2 border-black overflow-hidden"><button onClick={() => setSettings({...settings, size: '2K'})} className={`px-2 py-1 text-xs font-bold ${settings.size === '2K' ? 'bg-green-300' : ''}`}>2K</button><button onClick={() => setSettings({...settings, size: '4K'})} className={`px-2 py-1 text-xs font-bold border-l-2 border-black ${settings.size === '4K' ? 'bg-green-300' : ''}`}>4K</button></div><button onClick={() => { setBaseImage(null); setPoints([]); }} className="p-2 bg-white border-2 border-black rounded-full active:scale-95 transition-transform" title="重置"><RotateCcw size={16} /></button></div></div><div className="flex-1 overflow-y-auto min-h-0 flex flex-col"><div className="relative border-4 border-black bg-white rounded-lg overflow-hidden flex-1 min-h-[200px] flex items-center justify-center bg-gray-200">{!baseImage ? (<label className="flex flex-col items-center p-8 cursor-pointer"><Upload size={48} /><span className="font-bold mt-2">上传底图 / 从历史选择</span><input type="file" className="hidden" onChange={handleBaseUpload} /></label>) : (<><img src={baseImage.preview} className="w-full h-full object-contain pointer-events-auto" onClick={handleImageClick} />{points.map(p => (<div key={p.id} onClick={(e) => handlePointClick(e, p)} className="absolute w-6 h-6 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-125 transition-transform" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>{p.id}</div>))}</>)}</div><div className="mt-4 flex gap-2 overflow-x-auto flex-shrink-0">{points.map(p => (<div key={p.id} className="min-w-[100px] p-2 bg-white border-2 border-black rounded text-xs"><div className="font-bold">点 #{p.id} ({p.mode})</div><div className="truncate text-gray-500">{p.desc || "无描述"}</div></div>))}</div></div><div className="mt-4 flex gap-2 flex-shrink-0"><button onClick={startBatchProcess} disabled={points.length === 0} className={`cartoon-btn w-full py-3 mt-2 flex-shrink-0 flex items-center justify-center gap-2`}><Play size={20} /> 开始执行</button></div></div>
+                      {activePoint && (
+                          <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                              <div className="cartoon-box bg-white w-full max-w-sm p-4 space-y-3 animate-bounce-in">
+                                  <h3 className="text-lg font-black">配置任务点 #{activePoint.id}</h3>
+                                  <div className="flex gap-2"><button onClick={() => setActivePoint({...activePoint, mode: 'text'})} className={`flex-1 py-2 text-xs border-2 border-black rounded flex flex-col items-center justify-center gap-1 ${activePoint.mode === 'text' ? 'bg-yellow-300' : 'bg-white'}`}><Type size={16}/>纯文字</button><button onClick={() => setActivePoint({...activePoint, mode: 'add'})} className={`flex-1 py-2 text-xs border-2 border-black rounded flex flex-col items-center justify-center gap-1 ${activePoint.mode === 'add' ? 'bg-yellow-300' : 'bg-white'}`}><ImagePlus size={16}/>添加+图</button><button onClick={() => setActivePoint({...activePoint, mode: 'replace'})} className={`flex-1 py-2 text-xs border-2 border-black rounded flex flex-col items-center justify-center gap-1 ${activePoint.mode === 'replace' ? 'bg-yellow-300' : 'bg-white'}`}><Replace size={16}/>替换+图</button></div>
+                                  <textarea className="cartoon-input w-full h-20" placeholder={activePoint.mode === 'text' ? "输入指令描述..." : "输入指令描述 (可选)..."} value={activePoint.desc} onChange={e => setActivePoint({...activePoint, desc: e.target.value})}/>
+                                  {activePoint.mode !== 'text' && (<div className="flex items-center gap-2"><label className="flex-1 border-2 border-black border-dashed rounded h-10 flex items-center justify-center bg-gray-50 text-xs font-bold cursor-pointer">{activePoint.refImg ? "已选参考图" : "+ 参考图 (必需)"}<input type="file" className="hidden" onChange={(e) => setActivePoint({...activePoint, refImg: e.target.files[0]})} /></label></div>)}
+                                  <button onClick={confirmPointConfig} className="cartoon-btn w-full py-3">确认配置 (暂不识别)</button>
+                                  <div className="flex justify-between items-center mt-2"><button onClick={handleDeletePoint} className="text-xs text-red-500 font-bold underline">删除此节点</button><button onClick={handleCancel} className="text-xs text-center underline">取消</button></div>
+                              </div>
+                          </div>
+                      )}
+                </div>
+            );
+        };
+
+        // ... HistoryView ...
+        const HistoryView = ({ history, onRerun, onEdit, onDelete, onSendToImg2Img, onSendToInpaint, onCopy, onBatchDownload, onCopyLink, showToast }) => {
+            const [selectedImg, setSelectedImg] = useState(null); 
+            const [actionItem, setActionItem] = useState(null); 
+            const [showBatchMenu, setShowBatchMenu] = useState(false);
+            const [showParamsModal, setShowParamsModal] = useState(false);
+            
+            // Batch Selection State
+            const [isSelectionMode, setIsSelectionMode] = useState(false);
+            const [selectedIds, setSelectedIds] = useState(new Set());
+            const timerRef = useRef(null);
+            const isLongPressRef = useRef(false);
+
+            const toggleSelection = (id) => {
+                const newSet = new Set(selectedIds);
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
+                setSelectedIds(newSet);
+            };
+
+            const selectAll = () => {
+                if (selectedIds.size === history.length) setSelectedIds(new Set());
+                else setSelectedIds(new Set(history.map(item => item.id)));
+            };
+
+            const exitSelectionMode = () => {
+                setIsSelectionMode(false);
+                setSelectedIds(new Set());
+                setShowBatchMenu(false);
+            };
+
+            const handleBatchOpen = () => {
+                if (selectedIds.size === 0) return;
+                const urls = [];
+                selectedIds.forEach(id => {
+                    const item = history.find(h => h.id === id);
+                    if (item && item.url) urls.push(item.url);
+                });
+                if (urls.length === 0) return showToast("选中的任务没有有效的链接", "error");
+                
+                showToast(`正在打开 ${urls.length} 个链接，请允许弹窗...`);
+                urls.forEach(url => window.open(url, '_blank'));
+                setShowBatchMenu(false);
+            };
+
+            const handleBatchCopyUrls = () => {
+                if (selectedIds.size === 0) return;
+                const urls = [];
+                selectedIds.forEach(id => {
+                    const item = history.find(h => h.id === id);
+                    if (item && item.url) urls.push(item.url);
+                });
+                if (urls.length === 0) return showToast("选中的任务没有有效的链接", "error");
+
+                const text = urls.join('\n');
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(`已复制 ${urls.length} 个链接`);
+                } catch (err) {
+                    showToast("复制失败", "error");
+                }
+                document.body.removeChild(textArea);
+                setShowBatchMenu(false);
+            };
+
+            const handleBatchDelete = () => {
+                if (selectedIds.size === 0) return;
+                if (!confirm(`确定删除选中的 ${selectedIds.size} 个任务吗？`)) return;
+                
+                selectedIds.forEach(id => onDelete(id));
+                setSelectedIds(new Set());
+                setShowBatchMenu(false);
+                showToast("批量删除完成");
+            };
+
+            const handleBatchDownloadSelected = () => {
+                const selectedItems = history.filter(h => selectedIds.has(h.id));
+                if (selectedItems.length === 0) return showToast("未选中任何任务");
+                onBatchDownload(selectedItems);
+                setShowBatchMenu(false);
+                exitSelectionMode();
+            };
+
+            // Touch/Press Handlers
+            const handleTouchStart = (id) => {
+                if (!isSelectionMode) {
+                    isLongPressRef.current = false;
+                    timerRef.current = setTimeout(() => {
+                        setIsSelectionMode(true);
+                        toggleSelection(id);
+                        isLongPressRef.current = true;
+                        if (navigator.vibrate) navigator.vibrate(50);
+                    }, 600);
+                }
+            };
+
+            const handleTouchEnd = () => {
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+            };
+
+            const handleCardClick = (e, item) => {
+                // If it was a long press, stop here (selection already toggled in timeout)
+                if (isLongPressRef.current) {
+                    isLongPressRef.current = false;
+                    return;
+                }
+                
+                if (isSelectionMode) {
+                    toggleSelection(item.id);
+                } else {
+                    setActionItem(item);
+                }
+            };
+
+            return (
+                <div className="absolute inset-0 px-3 pt-2 pb-[calc(90px+0.5rem)] flex flex-col animate-fade-in">
+                    <div className="cartoon-box flex-1 flex flex-col p-4 bg-purple-100 overflow-hidden">
+                        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                            <h2 className="text-xl font-black flex items-center gap-2">
+                                作品集 ({history.length})
+                            </h2>
+                            <div className="flex gap-2">
+                                {/* Removed Cloud Download and CheckSquare buttons */}
+                            </div>
+                        </div>
+                        
+                        {isSelectionMode && (
+                            <div className="flex gap-2 mb-2 justify-between items-center bg-white p-2 rounded-lg border-2 border-black animate-fade-in">
+                                <span className="text-xs font-bold ml-1">已选: {selectedIds.size}</span>
+                                <div className="flex gap-2">
+                                    <button onClick={selectAll} className="text-xs underline font-bold">全选/取消</button>
+                                    <button onClick={exitSelectionMode} className="text-xs text-red-500 font-bold">退出</button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex-1 overflow-y-auto min-h-0">
+                            <div className="grid grid-cols-3 gap-2 pb-20">
+                                {history.map((item, idx) => (
+                                    <div 
+                                        key={item.id || idx} 
+                                        className={`bg-white border-2 border-black rounded-lg overflow-hidden group relative aspect-[3/4] cursor-pointer active:scale-95 transition-transform noselect ${isSelectionMode && selectedIds.has(item.id) ? 'selected-card' : ''}`} 
+                                        onTouchStart={() => handleTouchStart(item.id)}
+                                        onTouchEnd={handleTouchEnd}
+                                        onMouseDown={() => handleTouchStart(item.id)} // Desktop support
+                                        onMouseUp={handleTouchEnd}
+                                        onMouseLeave={handleTouchEnd}
+                                        onClick={(e) => handleCardClick(e, item)}
+                                        onContextMenu={(e) => e.preventDefault()}
+                                        onDoubleClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (!isSelectionMode) setSelectedImg(item.url); 
+                                        }} 
+                                    >
+                                        {/* Selection Checkbox Overlay */}
+                                        {isSelectionMode && (
+                                            <div className={`check-circle ${selectedIds.has(item.id) ? 'checked' : ''}`}>
+                                                {selectedIds.has(item.id) && <Check size={16} />}
+                                            </div>
+                                        )}
+
+                                        {item.status === 'generating' || item.status === 'analyzing' ? (
+                                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-200">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
+                                                <span className="text-[8px] mt-2 font-bold px-1 text-center leading-tight">{item.status === 'analyzing' ? '分析中...' : `生成中 ${item.progress || 0}%`}</span>
+                                            </div>
+                                        ) : item.status === 'failed' ? (
+                                            <div className="w-full h-full flex items-center justify-center bg-red-100"><span className="text-xs font-bold text-red-500">失败</span></div>
+                                        ) : (
+                                            <>
+                                                <img src={item.url} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
+                                            </>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 p-1 text-[8px] font-bold truncate border-t-2 border-black bg-white flex justify-between">
+                                            <span>{item.type.toUpperCase()}</span>
+                                            {item.isMock && <span className="text-red-500">DEMO</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {history.length === 0 && <div className="text-center text-gray-500 mt-20 font-bold">暂无作品，长按任务可多选</div>}
+                        </div>
+                        
+                        {/* Floating Batch Action Bar */}
+                        {isSelectionMode && selectedIds.size > 0 && (
+                            <div className="absolute bottom-4 left-4 right-4 animate-bounce-in z-20">
+                                <button 
+                                    onClick={() => setShowBatchMenu(true)} 
+                                    className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 shadow-lg"
+                                >
+                                    <Settings size={20}/> 批量操作 ({selectedIds.size})
+                                </button>
+                            </div>
+                        )}
+                        
+                        {/* Batch Menu Modal */}
+                        {showBatchMenu && (
+                            <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4" onClick={() => setShowBatchMenu(false)}>
+                                <div className="cartoon-box bg-white w-full max-w-xs p-4 space-y-3 animate-bounce-in" onClick={e => e.stopPropagation()}>
+                                    <h3 className="text-lg font-black border-b-2 border-black pb-2 text-center">批量操作 ({selectedIds.size})</h3>
+                                    <div className="space-y-2">
+                                        <button onClick={handleBatchDownloadSelected} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400">
+                                            <DownloadCloud size={18} /> 批量下载图片
+                                        </button>
+                                        <button onClick={handleBatchOpen} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-white">
+                                            <ExternalLink size={18} /> 批量打开链接
+                                        </button>
+                                        <button onClick={handleBatchCopyUrls} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-white">
+                                            <Copy size={18} /> 批量复制链接
+                                        </button>
+                                        <button onClick={handleBatchDelete} className="cartoon-btn danger w-full py-3 flex items-center justify-center gap-2">
+                                            <Trash2 size={18} /> 批量删除
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setShowBatchMenu(false)} className="w-full text-center text-sm underline mt-2">取消</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {selectedImg && (<div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={() => setSelectedImg(null)}><img src={selectedImg} className="max-w-full max-h-full object-contain rounded-lg border-4 border-white" /><button className="absolute top-4 right-4 text-white"><X size={32} /></button></div>)}
+                    {actionItem && (
+                        <div className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4" onClick={() => setActionItem(null)}>
+                            <div className="cartoon-box bg-white w-full max-w-xs p-4 space-y-3 animate-bounce-in" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-black border-b-2 border-black pb-2">任务操作</h3>
+                                <div className="space-y-2">
+                                    <button onClick={() => { onRerun(actionItem); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2"><Repeat size={18} /> 立即重做</button>
+                                    
+                                    {/* 2. 只有非 'analyzing' 状态才显示复制 */}
+                                    {actionItem.status !== 'analyzing' && (
+                                        <button onClick={() => { onCopy(actionItem); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Copy size={18} /> 复制任务</button>
+                                    )}
+                                    {actionItem.status === 'success' && (
+                                        <button onClick={() => { onCopyLink(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><ExternalLink size={18} /> 跳转链接</button>
+                                    )}
+                                    <button onClick={() => { onEdit(actionItem); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Edit size={18} /> 编辑任务</button>
+                                    <button onClick={() => { setShowParamsModal(true); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-blue-200"><Info size={18} /> 查看参数</button>
+                                    {actionItem.status === 'success' && (<><button onClick={() => { onSendToImg2Img(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><SendTo size={18} /> 传图生图</button><button onClick={() => { onSendToInpaint(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Layers size={18} /> 传重绘</button><button onClick={() => { setSelectedImg(actionItem.url); setActionItem(null); }} className="cartoon-btn w-full py-3 flex items-center justify-center gap-2 bg-yellow-400"><Eye size={18} /> 查看大图</button></>)}<button onClick={() => { onDelete(actionItem.id); setActionItem(null); }} className="cartoon-btn danger w-full py-3 flex items-center justify-center gap-2"><Trash2 size={18} /> 删除任务</button></div><button onClick={() => setActionItem(null)} className="w-full text-center text-sm underline mt-2">取消</button></div></div>)}
+                    <ParamsModal isOpen={showParamsModal} onClose={() => setShowParamsModal(false)} task={actionItem} />
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setTab] = useState('txt2img');
+            const [history, setHistory] = useState([]);
+            const [config, setConfig] = useState(DEFAULT_CONFIG);
+            const [showSettings, setShowSettings] = useState(false);
+            const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+            
+            // New state for SuperTask persistence
+            const [superTaskState, setSuperTaskState] = useState({
+                globalRefs: [],
+                subTasks: [{ id: 1, prompt: '', localRefs: [] }],
+                settings: { size: '2K' }
+            });
+
+            const [editingTask, setEditingTask] = useState(null);
+            const [transferData, setTransferData] = useState(null); 
+
+            const showToast = (message, type = 'info') => { setToast({ show: true, message, type }); };
+            const addToHistory = (item) => { setHistory(prev => [item, ...prev]); };
+            const updateHistory = (id, newProps) => { setHistory(prev => prev.map(item => item.id === id ? { ...item, ...newProps } : item)); };
+            const deleteHistory = (id) => { setHistory(prev => prev.filter(item => item.id !== id)); showToast("任务已删除"); };
+
+            // IMPORTANT FIX: handleRerun now uses runTaskWithRetry to ensure automatic restarts
+            // And properly extracts refs from history item
+            const handleRerun = async (task) => {
+                showToast("正在原地重启任务...");
+                // Reset status
+                updateHistory(task.id, { status: 'generating', progress: 0 });
+                
+                try {
+                    // Extract data based on task type
+                    let prompt = task.prompt;
+                    let ratio = "1:1";
+                    let size = "2K";
+                    let urls = [];
+
+                    if (task.type === 'txt2img') {
+                        // FIX: Explicitly restore ratio from saved settings
+                        ratio = task.settings?.ratio || "1:1";
+                        size = task.settings?.size || "2K";
+                        urls = [];
+                    } else if (task.type === 'img2img') {
+                        // FIX: Explicitly restore ratio from saved settings
+                        ratio = task.settings?.ratio || "1:1";
+                        if (ratio === "PIC") ratio = "1:1"; // Fallback if exact ratio lost
+                        size = task.settings?.size || "2K";
+                        urls = task.extraData?.refs || [];
+                    } else if (task.type === 'inpaint_step') {
+                        urls = task.extraData?.refs || [];
+                        if (urls.length === 0 && task.extraData?.baseImageUrl) {
+                            urls = [task.extraData.baseImageUrl];
+                        }
+                        // FIX: Use saved settings first, fallback to original dims if available
+                        if (task.settings && task.settings.ratio !== "ORIGINAL") {
+                             ratio = task.settings.ratio;
+                             size = task.settings.size || "2K";
+                        } else if (task.extraData?.baseImageDims) {
+                            ratio = `${task.extraData.baseImageDims.width}:${task.extraData.baseImageDims.height}`;
+                        }
+                    }
+
+                    // Use runTaskWithRetry for automatic 10x retry
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(prompt, ratio, size, urls, config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(task.id, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(task.id, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                    );
+
+                    const isMock = taskId.toString().startsWith("mock-");
+                    updateHistory(task.id, { url, status: 'success', isMock, prompt: prompt }); // Restore prompt text without "retry" suffix
+
+                } catch (e) {
+                    showToast("重启失败: " + e.message, "error");
+                    updateHistory(task.id, { status: 'failed', prompt: `失败: ${e.message}` });
+                }
+            };
+
+            const handleCopy = async (task) => {
+                showToast("正在复制任务并重新提交...");
+                const tempId = Date.now();
+                let newExtraData = task.extraData ? JSON.parse(JSON.stringify(task.extraData)) : {};
+                
+                // Ensure refs preserved for copy
+                if (task.type === 'img2img' && !newExtraData.refs) newExtraData.refs = [];
+
+                // FIX: Ensure settings (ratio/size) are copied to new task history
+                addToHistory({ 
+                    ...task, 
+                    id: tempId, 
+                    date: new Date(), 
+                    status: 'generating', 
+                    progress: 0, 
+                    extraData: newExtraData,
+                    settings: task.settings // IMPORTANT: Carry over settings
+                });
+                
+                try {
+                    // Logic similar to handleRerun but for a new ID
+                    let urls = [];
+                    let prompt = task.prompt;
+                    let aspectRatio = "1:1"; 
+                    let imageSize = "2K"; 
+
+                    if (task.type === 'img2img') {
+                        urls = task.extraData?.refs || [];
+                        // Logic Update: Prefer the saved ratio in settings which should be explicit now
+                        aspectRatio = task.settings?.ratio === "PIC" ? "1:1" : task.settings?.ratio || "1:1"; 
+                        imageSize = task.settings?.size || "2K";
+                    } else if (task.type === 'txt2img') {
+                        aspectRatio = task.settings?.ratio || "1:1";
+                        imageSize = task.settings?.size || "2K";
+                    } else if (task.type === 'inpaint_step') {
+                        urls = task.extraData?.refs || [];
+                        // Logic matching handleRerun
+                        if (task.settings && task.settings.ratio !== "ORIGINAL") {
+                             aspectRatio = task.settings.ratio;
+                             imageSize = task.settings.size || "2K";
+                        } else if (task.extraData?.baseImageDims) {
+                            aspectRatio = `${task.extraData.baseImageDims.width}:${task.extraData.baseImageDims.height}`;
+                        }
+                    }
+
+                    const { url, taskId } = await runTaskWithRetry(
+                        () => submitDrawTask(prompt, aspectRatio, imageSize, urls, config),
+                        (id) => pollTaskResult(id, (p) => updateHistory(tempId, { progress: p }), config),
+                        10,
+                        (attempt) => updateHistory(tempId, { prompt: `${prompt} (自动重试 ${attempt}/10)` })
+                    );
+
+                    const isMock = taskId.toString().startsWith("mock-");
+                    updateHistory(tempId, { url, status: 'success', isMock, prompt: prompt });
+                } catch (e) { showToast("复制失败: " + e.message, "error"); updateHistory(tempId, { status: 'failed' }); }
+            };
+
+            const handleEdit = (task) => { 
+                setEditingTask(task); 
+                setTab(task.type === 'inpaint_step' ? 'inpaint' : task.type); 
+                showToast("已还原任务内容"); 
+            };
+            const handleSendToImg2Img = (url) => { setTransferData({ target: 'img2img', payload: url }); setTab('img2img'); };
+            const handleSendToInpaint = (url) => { setTransferData({ target: 'inpaint', payload: url }); setTab('inpaint'); };
+
+            const handleBatchDownload = async (tasksToDownload = null) => {
+                const source = (Array.isArray(tasksToDownload) && tasksToDownload.length > 0) ? tasksToDownload : history;
+                const successes = source.filter(h => h.status === 'success' && h.url);
+                
+                if (successes.length === 0) return showToast("没有可下载的成功任务", "error");
+                
+                showToast(`开始批量下载 ${successes.length} 张图片，请允许弹窗...`);
+                
+                for (const item of successes) {
+                    const link = document.createElement('a');
+                    link.href = item.url;
+                    link.download = `result_${item.id}.png`; 
+                    link.target = '_blank'; // Needed for some browsers to trigger download for cross-origin
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    await new Promise(r => setTimeout(r, 1000)); // Increased Delay to 1000ms
+                }
+            };
+
+            const handleCopyLink = (url) => {
+                if (!url) return;
+                window.open(url, '_blank');
+            };
+
+            return (
+                <div className="h-full w-full max-w-md mx-auto bg-gray-50 shadow-2xl relative flex flex-col overflow-hidden">
+                    <Header onSettings={() => setShowSettings(true)} />
+                    <main className="flex-1 relative w-full overflow-hidden">
+                        {activeTab === 'txt2img' && <Txt2Img addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} />}
+                        {activeTab === 'img2img' && <Img2Img addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} />}
+                        {activeTab === 'supertask' && <SuperTaskMode addToHistory={addToHistory} updateHistory={updateHistory} config={config} showToast={showToast} state={superTaskState} setState={setSuperTaskState} />}
+                        {activeTab === 'inpaint' && <InpaintMode addToHistory={addToHistory} updateHistory={updateHistory} historyItems={history} config={config} showToast={showToast} transferData={transferData} onConsumeTransfer={() => setTransferData(null)} editingTask={editingTask} onTaskLoaded={() => setEditingTask(null)} />}
+                        {activeTab === 'history' && <HistoryView history={history} onRerun={handleRerun} onCopy={handleCopy} onEdit={handleEdit} onDelete={deleteHistory} onSendToImg2Img={handleSendToImg2Img} onSendToInpaint={handleSendToInpaint} onBatchDownload={handleBatchDownload} onCopyLink={handleCopyLink} showToast={showToast} />}
+                    </main>
+                    <TabBar activeTab={activeTab} setTab={setTab} />
+                    <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} config={config} setConfig={setConfig} />
+                    <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast(prev => ({...prev, show: false}))} />
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
